@@ -6,6 +6,7 @@ import {
   SEED_AUGUST_2026,
   EXERCISES,
   SUPPLEMENTS,
+  EVIDENCE_GRADES,
   MUSCLES,
   MED_PRINCIPLES,
   DOSE_PROFILES,
@@ -39,7 +40,7 @@ import {
   APP_PUBLIC_URL,
 } from "./invite.js";
 
-const APP_VERSION = "13";
+const APP_VERSION = "14";
 const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -47,6 +48,9 @@ const MACROLEDGER_URL = "https://natesaninja.github.io/macroledger/";
 
 /** @type {ReturnType<typeof loadState>} */
 let state = loadState();
+/** Supps tab: search + tier filter */
+let suppQuery = "";
+let suppFilter = "all";
 /** @type {ReturnType<typeof buildPlan> | null} */
 let plan = null;
 let calYear = new Date().getFullYear();
@@ -68,6 +72,7 @@ function ensureSeeded() {
   if (!state.workOff) state.workOff = [];
   if (!state.completedSessions) state.completedSessions = {};
   if (!state.dayDose) state.dayDose = {};
+  if (!Array.isArray(state.myStack)) state.myStack = [];
   if (state.onboardingComplete == null) state.onboardingComplete = false;
   if (!state.settings.defaultDose) state.settings.defaultDose = "med";
 
@@ -259,6 +264,7 @@ function initNav() {
       document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
       if (view === "plan") renderCalendar();
       if (view === "coverage") renderCoverage();
+      if (view === "supps") renderSupps();
       if (view === "settings") renderSettingsForm();
     });
   });
@@ -716,26 +722,161 @@ function renderCoverage() {
     .join("");
 }
 
-// ---------- supps ----------
+// ---------- supps (training evidence browser) ----------
+const TIER_LABEL = {
+  core: "MED core",
+  optional: "Optional",
+  conditional: "Only if needed",
+  skip: "Usually skip",
+};
+const TIER_CLASS = {
+  core: "tier-core",
+  optional: "tier-optional",
+  conditional: "tier-conditional",
+  skip: "tier-skip",
+};
+const SEV_CLASS = { low: "sev-low", moderate: "sev-moderate", high: "sev-high" };
+
+function myStackSet() {
+  return new Set(state.myStack || []);
+}
+
+function toggleMyStack(id) {
+  const set = myStackSet();
+  if (set.has(id)) set.delete(id);
+  else set.add(id);
+  state.myStack = [...set];
+  persist();
+  renderSupps();
+}
+
+function suppMatchesQuery(s, q) {
+  if (!q) return true;
+  const hay = [
+    s.name,
+    s.id,
+    ...(s.aliases || []),
+    ...(s.tags || []),
+    s.why,
+    s.science,
+    ...(s.claims || []).map((c) => `${c.outcome} ${c.note || ""}`),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return q.split(/\s+/).filter(Boolean).every((term) => hay.includes(term));
+}
+
+function filteredSupplements() {
+  const q = suppQuery.trim().toLowerCase();
+  const stack = myStackSet();
+  return SUPPLEMENTS.filter((s) => {
+    if (suppFilter === "stack" && !stack.has(s.id)) return false;
+    if (suppFilter !== "all" && suppFilter !== "stack" && (s.tier || "optional") !== suppFilter) {
+      return false;
+    }
+    return suppMatchesQuery(s, q);
+  });
+}
+
+function renderClaimRow(c) {
+  const g = EVIDENCE_GRADES[c.grade] || { label: c.grade, short: c.grade };
+  return `
+    <li class="claim-row">
+      <span class="claim-outcome">${escapeHtml(c.outcome)}</span>
+      <span class="chip grade-${escapeHtml(c.grade)}">${escapeHtml(g.label)}</span>
+      ${c.note ? `<span class="claim-note">${escapeHtml(c.note)}</span>` : ""}
+    </li>`;
+}
+
 function renderSupps() {
-  const tierLabel = { core: "MED core", optional: "Optional", conditional: "Only if needed" };
-  const tierClass = { core: "tier-core", optional: "tier-optional", conditional: "tier-conditional" };
-  document.getElementById("supp-list").innerHTML = SUPPLEMENTS.map((s) => {
-    const tid = s.tier || "optional";
-    return `
-    <article class="sup-card">
+  const list = document.getElementById("supp-list");
+  const countEl = document.getElementById("supp-count");
+  if (!list) return;
+
+  const searchEl = document.getElementById("supp-search");
+  if (searchEl && searchEl.value !== suppQuery) searchEl.value = suppQuery;
+
+  document.querySelectorAll(".supp-filter-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.filter === suppFilter);
+  });
+
+  const stack = myStackSet();
+  const items = filteredSupplements();
+  if (countEl) {
+    const stackN = stack.size;
+    countEl.textContent =
+      items.length === SUPPLEMENTS.length && !suppQuery && suppFilter === "all"
+        ? `${SUPPLEMENTS.length} compounds · ${stackN} on your stack`
+        : `${items.length} match${items.length === 1 ? "" : "es"} · ${stackN} on your stack`;
+  }
+
+  if (!items.length) {
+    list.innerHTML = `<p class="hint" style="margin:0.75rem 0 0">No matches. Try another search or filter — library is training-focused, not every wellness claim.</p>`;
+    return;
+  }
+
+  list.innerHTML = items
+    .map((s) => {
+      const tid = s.tier || "optional";
+      const onStack = stack.has(s.id);
+      const claims = (s.claims || []).map(renderClaimRow).join("");
+      const interactions = (s.interactions || [])
+        .map(
+          (ix) => `
+        <li class="ix-row">
+          <span class="chip ${SEV_CLASS[ix.severity] || "sev-low"}">${escapeHtml(ix.severity || "note")}</span>
+          <span>${escapeHtml(ix.text)}</span>
+        </li>`
+        )
+        .join("");
+      return `
+    <article class="sup-card" data-supp-id="${escapeHtml(s.id)}">
       <div class="sup-card-head">
         <h3>${escapeHtml(s.name)}</h3>
-        <span class="chip ${tierClass[tid] || ""}">${tierLabel[tid] || tid}</span>
+        <span class="chip ${TIER_CLASS[tid] || ""}">${TIER_LABEL[tid] || tid}</span>
+        <button type="button" class="stack-btn ${onStack ? "on" : ""}" data-stack-toggle="${escapeHtml(s.id)}" aria-pressed="${onStack}">
+          ${onStack ? "On stack ✓" : "Add to stack"}
+        </button>
       </div>
-      <p class="sup-meta"><strong>MED dose:</strong> ${escapeHtml(s.medDose)}</p>
+      ${claims ? `<ul class="claim-list">${claims}</ul>` : ""}
+      <p class="sup-meta"><strong>Studied / MED dose:</strong> ${escapeHtml(s.medDose)}</p>
       <p class="sup-meta"><strong>When:</strong> ${escapeHtml(s.when)} · ${escapeHtml(s.window)}</p>
       <p class="sup-why"><strong>Why:</strong> ${escapeHtml(s.why)}</p>
-      <div class="sup-science"><strong>Science (short):</strong> ${escapeHtml(s.science)}</div>
-      <p class="sup-meta"><strong>Skip if:</strong> ${escapeHtml(s.skipIf)}</p>
-      <p class="dim">${escapeHtml(s.wastedEffortNote)}</p>
+      <details class="sup-details">
+        <summary>Science, cautions &amp; skip rules</summary>
+        <div class="sup-science"><strong>Science (short):</strong> ${escapeHtml(s.science)}</div>
+        ${
+          interactions
+            ? `<div class="sup-ix"><strong>Interactions / cautions:</strong><ul class="ix-list">${interactions}</ul></div>`
+            : ""
+        }
+        <p class="sup-meta"><strong>Skip if:</strong> ${escapeHtml(s.skipIf)}</p>
+        <p class="dim">${escapeHtml(s.wastedEffortNote)}</p>
+      </details>
     </article>`;
-  }).join("");
+    })
+    .join("");
+}
+
+function initSuppsUi() {
+  const search = document.getElementById("supp-search");
+  if (search) {
+    search.addEventListener("input", () => {
+      suppQuery = search.value || "";
+      renderSupps();
+    });
+  }
+  document.getElementById("supp-filters")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-filter]");
+    if (!btn) return;
+    suppFilter = btn.dataset.filter || "all";
+    renderSupps();
+  });
+  document.getElementById("supp-list")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-stack-toggle]");
+    if (!btn) return;
+    toggleMyStack(btn.dataset.stackToggle);
+  });
 }
 
 // ---------- settings ----------
@@ -1358,6 +1499,7 @@ async function boot() {
   initTheme();
   initNav();
   initEvents();
+  initSuppsUi();
   wireInviteGate();
   document.getElementById("btn-check-update")?.addEventListener("click", () =>
     checkForAppUpdate({ manual: true })

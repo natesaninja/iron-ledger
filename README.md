@@ -14,6 +14,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 - Invite-only unlock per device  
 - Progressive coach: Guided → Building → Custom  
 - MED / OED / rough dose by feel  
+- **Supps** — training evidence browser (search, claim grades, dose/timing, cautions, personal stack)  
 - MacroLedger session handoff  
 - Offline · local-only data per device  
 

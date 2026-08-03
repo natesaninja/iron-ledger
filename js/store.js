@@ -13,6 +13,8 @@ const EMPTY = () => ({
   completedSessions: {}, // iso -> { completedAt, exercises done flags }
   /** iso -> "rough" | "med" | "oed" — how you feel that day (change anytime) */
   dayDose: {},
+  /** Supplement ids marked “on my stack” (local-only) */
+  myStack: [],
   logs: [], // optional set logs later
   onboardingComplete: false,
   version: 1,

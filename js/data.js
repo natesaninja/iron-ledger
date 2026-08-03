@@ -117,70 +117,306 @@ export const EXERCISES = [
 ];
 
 /**
- * MED-first supplement stack — only what earns its place under time constraints.
- * "tier": core = best evidence / usually worth it | conditional = only if gap | optional = performance nice-to-have
- * Not medical advice. Evidence summaries are educational.
+ * Evidence grades for training claims (educational, not medical advice).
+ * strong > moderate > mixed > weak > insufficient
+ */
+export const EVIDENCE_GRADES = {
+  strong: { label: "Strong", short: "Strong" },
+  moderate: { label: "Moderate", short: "Mod" },
+  mixed: { label: "Mixed", short: "Mixed" },
+  weak: { label: "Weak", short: "Weak" },
+  insufficient: { label: "Insufficient", short: "Insuff." },
+};
+
+/**
+ * MED-first training supplement library — claim grades, studied dose, timing, cautions.
+ * tier: core | optional | conditional | skip (usually not worth it for MED training)
+ * Not medical advice. Summaries are educational; check a clinician for personal use, labs, and meds.
  */
 export const SUPPLEMENTS = [
   {
     id: "creatine",
     name: "Creatine monohydrate",
+    aliases: ["creatine", "creapure", "cm"],
     tier: "core",
+    tags: ["strength", "power", "daily", "hypertrophy"],
     medDose: "3–5 g every day (no loading required for MED)",
     window: "Any consistent time — with a meal is fine",
     when: "Daily, train or rest",
     why: "Most researched sports supplement. Raises muscle phosphocreatine so you can do a bit more high-intensity work (extra reps/sets over months). That extra recoverable work is the growth signal — not magic powder during the set.",
-    science: "Meta-analyses show small-to-moderate gains in strength and lean mass with resistance training vs training alone. Works by improving ATP regeneration in short hard efforts. Timing is not critical; saturation from daily use matters, not “pre-workout only.”",
+    science:
+      "Meta-analyses show small-to-moderate gains in strength and lean mass with resistance training vs training alone. Works by improving ATP regeneration in short hard efforts. Timing is not critical; saturation from daily use matters, not “pre-workout only.”",
     skipIf: "You already get plenty from food and don’t care about marginal strength gains; or a clinician advised against it (rare).",
     wastedEffortNote: "Loading 20 g/day is optional, not required for results — daily 3–5 g is the MED path.",
+    claims: [
+      { outcome: "Strength / power", grade: "strong", note: "Consistent benefit for high-intensity efforts and strength gains with training." },
+      { outcome: "Lean mass", grade: "moderate", note: "Often helps with training-driven lean mass; some early water weight is normal." },
+      { outcome: "Endurance (long steady cardio)", grade: "weak", note: "Less relevant for long aerobic work than for short hard efforts." },
+    ],
+    interactions: [
+      { severity: "low", text: "Generally well tolerated. Stay hydrated; discuss with a clinician if you have known kidney disease." },
+      { severity: "low", text: "Caffeine: older “cancel out” fears are overstated for most people; daily creatine still works with coffee." },
+    ],
   },
   {
     id: "protein",
     name: "Protein (food first; whey if needed)",
+    aliases: ["whey", "casein", "protein powder", "protein"],
     tier: "core",
+    tags: ["hypertrophy", "recovery", "daily"],
     medDose: "About 1.6–2.2 g per kg bodyweight per day total from all food (not “per shake”)",
     window: "Spread across the day; a post-workout shake only helps if it fills the daily gap",
     when: "Every day — recovery happens between sessions",
     why: "Muscle repair needs amino acids. Under a sparse schedule you can’t afford to miss recovery nutrition on rest days either.",
-    science: "Reviews (e.g. Morton et al., ISSN positions) support ~1.6 g/kg/day as enough for most training people to maximize hypertrophy; more than ~2.2 g/kg rarely adds more muscle. Food counts fully; powder is a convenience tool, not superior magic.",
+    science:
+      "Reviews (e.g. Morton et al., ISSN positions) support ~1.6 g/kg/day as enough for most training people to maximize hypertrophy; more than ~2.2 g/kg rarely adds more muscle. Food counts fully; powder is a convenience tool, not superior magic.",
     skipIf: "You already hit the daily target with meals.",
     wastedEffortNote: "Chugging protein only post-workout while under-eating the rest of the day wastes the MED idea — total daily intake matters most.",
+    claims: [
+      { outcome: "Hypertrophy (with training)", grade: "strong", note: "Hitting a solid daily protein target supports muscle gain; powder is optional convenience." },
+      { outcome: "Recovery between sessions", grade: "moderate", note: "Adequate protein helps repair; sleep and total calories still matter more than shake timing." },
+      { outcome: "Fat loss without training", grade: "mixed", note: "Protein can help satiety; it does not replace a calorie deficit or lifting." },
+    ],
+    interactions: [
+      { severity: "low", text: "Usually fine. If you have kidney disease, protein targets should be set with a clinician." },
+    ],
   },
   {
     id: "caffeine",
-    name: "Caffeine (optional)",
+    name: "Caffeine",
+    aliases: ["coffee", "preworkout", "pre-workout", "caffeine"],
     tier: "optional",
+    tags: ["performance", "focus", "pre-workout"],
     medDose: "About 3–6 mg per kg bodyweight only on hard sessions if you tolerate it (many do well at the low end)",
     window: "~30–60 minutes before training",
     when: "Train days only — skip if it wrecks sleep",
     why: "Can raise alertness and training quality for a short session so the limited gym time counts. Sleep is higher priority than caffeine on night-shift transitions.",
-    science: "ISSN and multiple trials: caffeine reliably improves strength/power and workout performance in many people. It’s a performance aid, not a muscle-building nutrient. Tolerance and sleep disruption are real tradeoffs.",
+    science:
+      "ISSN and multiple trials: caffeine reliably improves strength/power and workout performance in many people. It’s a performance aid, not a muscle-building nutrient. Tolerance and sleep disruption are real tradeoffs.",
     skipIf: "Anxiety, poor sleep, late sessions, or coming off nights — then caffeine is anti-MED because it steals recovery.",
     wastedEffortNote: "Pre-workout blends with 15 ingredients usually don’t beat plain caffeine + creatine + protein fundamentals.",
+    claims: [
+      { outcome: "Strength / power (acute)", grade: "strong", note: "Reliable acute performance aid for many trainees." },
+      { outcome: "Endurance / work capacity", grade: "moderate", note: "Often helps effort quality; individual response varies." },
+      { outcome: "Muscle growth directly", grade: "weak", note: "No direct hypertrophy magic — only helps if it improves training quality." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "Can raise heart rate/blood pressure; be careful with other stimulants (yohimbine, high-dose synephrine, etc.)." },
+      { severity: "moderate", text: "Late use can wreck sleep — sleep loss is worse for gains than skipping caffeine." },
+      { severity: "low", text: "May interact with some meds (e.g. certain heart/anxiety drugs) — check with a pharmacist if unsure." },
+    ],
   },
   {
     id: "vitd",
-    name: "Vitamin D (conditional)",
+    name: "Vitamin D",
+    aliases: ["d3", "vitamin d", "cholecalciferol"],
     tier: "conditional",
+    tags: ["deficiency", "health", "daily"],
     medDose: "Only if deficient or low sun/labs — dose per clinician; common OTC is not a free pass to megadose",
     window: "With a meal that has some fat",
     when: "Daily if advised",
     why: "Correcting a real deficiency supports general health and may help training capacity; supplementing when levels are already fine is low return.",
-    science: "Vitamin D is a hormone precursor. Deficiency is common in low-sun lifestyles. Evidence for “extra D builds more muscle in replete people” is weak; evidence for fixing deficiency improving health outcomes is stronger.",
+    science:
+      "Vitamin D is a hormone precursor. Deficiency is common in low-sun lifestyles. Evidence for “extra D builds more muscle in replete people” is weak; evidence for fixing deficiency improving health outcomes is stronger.",
     skipIf: "Recent labs are normal and sun/diet is adequate.",
     wastedEffortNote: "Don’t buy D “for gains” without a reason — test or clinical advice beats guessing.",
+    claims: [
+      { outcome: "Correcting deficiency", grade: "strong", note: "Clear role when levels are low — confirm with labs when possible." },
+      { outcome: "Extra muscle in replete people", grade: "weak", note: "Little reliable evidence that megadosing builds more muscle if you’re already fine." },
+      { outcome: "Training performance (if deficient)", grade: "mixed", note: "Fixing deficiency may help capacity; not a performance PED when levels are normal." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "High chronic doses can raise calcium too high — don’t megadose without guidance." },
+      { severity: "low", text: "Can interact with some meds (steroids, certain weight-loss or seizure drugs) — ask a clinician if on prescriptions." },
+    ],
   },
   {
     id: "omega",
-    name: "Omega-3 (EPA/DHA) (conditional)",
+    name: "Omega-3 (EPA/DHA)",
+    aliases: ["fish oil", "omega", "epa", "dha", "krill"],
     tier: "conditional",
+    tags: ["health", "recovery", "daily"],
     medDose: "Only if you rarely eat fatty fish — food first (e.g. fish 1–2×/week often covers MED)",
     window: "With a meal",
     when: "Daily if diet gap",
     why: "Fills an essential fatty-acid gap for general health. Not a primary hypertrophy driver.",
-    science: "EPA/DHA have cardiovascular and inflammatory roles. Direct muscle-growth effects of fish oil in already healthy trainees are modest/inconsistent. MED is “don’t be deficient,” not “more pills = more muscle.”",
+    science:
+      "EPA/DHA have cardiovascular and inflammatory roles. Direct muscle-growth effects of fish oil in already healthy trainees are modest/inconsistent. MED is “don’t be deficient,” not “more pills = more muscle.”",
     skipIf: "You already eat fatty fish regularly.",
     wastedEffortNote: "Omega-3 does not replace sleep, protein, or progressive training.",
+    claims: [
+      { outcome: "General health / diet gap", grade: "moderate", note: "Useful when fatty fish is rare; food is fine first." },
+      { outcome: "Hypertrophy", grade: "weak", note: "Not a primary muscle-building supplement in trained people." },
+      { outcome: "Soreness / recovery", grade: "mixed", note: "Some trials show modest effects; results are inconsistent." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "High doses may increase bleeding tendency — caution with anticoagulants/antiplatelets; ask a clinician." },
+      { severity: "low", text: "Take with food if fishy burps bother you; quality/oxidation varies by brand." },
+    ],
+  },
+  {
+    id: "beta_alanine",
+    name: "Beta-alanine",
+    aliases: ["beta alanine", "carnosine", "ba"],
+    tier: "optional",
+    tags: ["endurance", "hypertrophy", "daily"],
+    medDose: "~3–6 g/day split doses for weeks (tingles are common, harmless for most)",
+    window: "Split across the day; not only “right before lifting”",
+    when: "Daily for saturation — like creatine, consistency beats acute timing",
+    why: "Raises muscle carnosine and can help efforts that burn in the ~1–4 minute range (higher-rep sets, short metcons). Smaller payoff for pure low-rep strength.",
+    science:
+      "Meta-analyses support small improvements in exercise capacity for efforts in the roughly 1–4 min window. Tingling (paresthesia) is common; splitting doses helps. Not a substitute for progressive training volume.",
+    skipIf: "You only do very low-rep strength work and hate the tingle, or you’re chasing pure 1RM strength.",
+    wastedEffortNote: "Won’t turn a missed protein target or skipped sessions into gains.",
+    claims: [
+      { outcome: "Work capacity (1–4 min efforts)", grade: "moderate", note: "Best-supported use case for beta-alanine." },
+      { outcome: "Low-rep max strength", grade: "weak", note: "Limited benefit for pure maximal strength." },
+      { outcome: "Hypertrophy (indirect)", grade: "mixed", note: "Only helps if extra quality volume actually happens." },
+    ],
+    interactions: [
+      { severity: "low", text: "Tingling is common. Rare issues — stop and check with a clinician if something feels wrong." },
+    ],
+  },
+  {
+    id: "citrulline",
+    name: "L-citrulline / citrulline malate",
+    aliases: ["citrulline", "citrulline malate", "pump", "nitric oxide"],
+    tier: "optional",
+    tags: ["performance", "pre-workout", "endurance"],
+    medDose: "Often ~6–8 g L-citrulline (or ~8 g citrulline malate) pre-workout in studies — products vary",
+    window: "~30–60 minutes before training",
+    when: "Train days (optional)",
+    why: "May improve blood flow / “pump” and slightly help higher-rep performance. Nice-to-have after creatine + protein + caffeine, not before them.",
+    science:
+      "Evidence is promising but less consistent than creatine or caffeine. Many commercial pre-workouts underdose it. Useful as an optional performance polish, not a foundation.",
+    skipIf: "Budget is tight or fundamentals (sleep, protein, creatine) aren’t locked — spend there first.",
+    wastedEffortNote: "A weak pre-workout “pump complex” with 1 g citrulline is mostly marketing.",
+    claims: [
+      { outcome: "Higher-rep performance / pumps", grade: "mixed", note: "Some trials positive; not as reliable as caffeine or creatine." },
+      { outcome: "Max strength", grade: "weak", note: "Not a primary strength supplement." },
+      { outcome: "Hypertrophy directly", grade: "weak", note: "Indirect at best via training quality." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "May lower blood pressure slightly — caution if on BP meds or with other vasodilators; ask a clinician." },
+      { severity: "low", text: "Often stacked with caffeine in pre-workouts — watch total stimulant load." },
+    ],
+  },
+  {
+    id: "magnesium",
+    name: "Magnesium",
+    aliases: ["mag", "magnesium glycinate", "magnesium citrate", "oxide"],
+    tier: "conditional",
+    tags: ["sleep", "recovery", "deficiency", "daily"],
+    medDose: "Common supplemental range ~200–400 mg elemental if diet is low — form matters; don’t exceed labels without advice",
+    window: "Evening is common if used for wind-down; with food if GI upset",
+    when: "Daily only if diet/gap suggests need",
+    why: "Many people under-eat magnesium-rich foods. Fixing a real gap can support sleep and general function; mega-dosing “for gains” is not the play.",
+    science:
+      "Magnesium is essential. Supplementation helps most when intake is low or losses are high. Evidence for huge performance boosts in already replete athletes is weak. Oxide is cheap but often harsher on the gut.",
+    skipIf: "You already eat nuts, seeds, legumes, greens regularly and sleep/recovery are fine.",
+    wastedEffortNote: "Oxide at high doses often equals bathroom urgency more than superpowers.",
+    claims: [
+      { outcome: "Correcting low intake", grade: "moderate", note: "Useful when diet is light on Mg-rich foods." },
+      { outcome: "Sleep / relaxation", grade: "mixed", note: "Some people report better sleep; evidence is mixed overall." },
+      { outcome: "Strength / hypertrophy", grade: "weak", note: "Not a primary muscle-building supplement when diet is adequate." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "Can reduce absorption of some antibiotics and bisphosphonates if taken at the same time — separate by several hours." },
+      { severity: "moderate", text: "Kidney disease: do not self-supplement high doses without medical advice." },
+      { severity: "low", text: "High doses → diarrhea (especially oxide/citrate)." },
+    ],
+  },
+  {
+    id: "ashwagandha",
+    name: "Ashwagandha",
+    aliases: ["withania", "ksm-66", "sensoril", "ashwagandha"],
+    tier: "optional",
+    tags: ["stress", "sleep", "recovery"],
+    medDose: "Study products often ~300–600 mg/day of standardized extract — follow product/clinician guidance",
+    window: "Often evening if used for wind-down; follow label",
+    when: "Daily trial period only if stress/sleep is the bottleneck",
+    why: "Some evidence for stress/anxiety and subjective recovery. Not a replacement for sleep hygiene, and not a steroid alternative.",
+    science:
+      "Several RCTs show reduced stress scores and some strength/recovery signals, but quality and extracts vary. Treat as optional stress-support, not a core hypertrophy stack item.",
+    skipIf: "You’re pregnant, have thyroid issues, or take sedating/thyroid meds without clinician OK — or stress isn’t actually your limiter.",
+    wastedEffortNote: "Won’t fix under-eating protein or skipping progressive overload.",
+    claims: [
+      { outcome: "Stress / anxiety scores", grade: "moderate", note: "Best-supported use case in human trials of standardized extracts." },
+      { outcome: "Strength / body comp", grade: "mixed", note: "Some positive trials; less consistent than creatine." },
+      { outcome: "Testosterone “boost”", grade: "weak", note: "Marketing overstates; not a reliable hormone therapy." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "May enhance sedatives / sleep meds; caution with thyroid medication — ask a clinician." },
+      { severity: "moderate", text: "Avoid in pregnancy unless a clinician specifically approves." },
+    ],
+  },
+  {
+    id: "electrolytes",
+    name: "Sodium / electrolytes",
+    aliases: ["salt", "electrolytes", "lmnt", "sodium", "potassium"],
+    tier: "conditional",
+    tags: ["performance", "endurance", "hydration"],
+    medDose: "Context-dependent: heavy sweat, long sessions, low-carb, or hot gyms — not a fixed “more salt = more gains” dose",
+    window: "Around hard sweaty sessions or throughout hot training days",
+    when: "When sweat losses are high — not mandatory every rest day for everyone",
+    why: "Hard training + sweat + low sodium intake can trash session quality. This is about replacing losses, not chugging sports drink for ego.",
+    science:
+      "Sodium is the main electrolyte lost in sweat. Needs vary wildly by sweat rate and diet. Evidence for fancy multi-electrolyte blends over basic sodium + fluids is often overstated for short gym sessions.",
+    skipIf: "You already salt food normally, sessions are short, and you don’t cramp or crash from heat/sweat.",
+    wastedEffortNote: "Electrolyte marketing won’t fix chronic under-sleep or under-fueling.",
+    claims: [
+      { outcome: "Session quality in heavy sweat / heat", grade: "moderate", note: "Replacing sodium/fluids can matter when losses are high." },
+      { outcome: "Hypertrophy directly", grade: "weak", note: "Not a muscle-building nutrient beyond enabling training." },
+      { outcome: "Cramps cure-all", grade: "mixed", note: "Cramps have many causes; electrolytes help some people, not all." },
+    ],
+    interactions: [
+      { severity: "moderate", text: "High blood pressure or sodium-restricted diets: don’t freestyle high salt — ask a clinician." },
+      { severity: "low", text: "Potassium supplements can be risky with certain BP/heart meds — food first unless advised." },
+    ],
+  },
+  {
+    id: "hmb",
+    name: "HMB",
+    aliases: ["hmb", "beta-hydroxy", "hydroxymethylbutyrate"],
+    tier: "skip",
+    tags: ["recovery", "hypertrophy"],
+    medDose: "Often ~3 g/day in studies — usually low ROI for trained lifters on adequate protein",
+    window: "Daily in research protocols",
+    when: "Rarely needed for MED commercial-gym trainees",
+    why: "Sometimes marketed for muscle preservation. For trained people already eating enough protein, evidence is usually disappointing vs cost.",
+    science:
+      "Stronger signals in untrained or calorie-deficit contexts in some papers; trained lifters with solid protein intake rarely see meaningful extras. Creatine + protein remain higher priority.",
+    skipIf: "Almost always for MED stacks — spend on food and creatine first.",
+    wastedEffortNote: "Expensive for uncertain upside when protein is already dialed.",
+    claims: [
+      { outcome: "Muscle in trained lifters (adequate protein)", grade: "weak", note: "Limited reliable benefit for most intermediate+ trainees." },
+      { outcome: "Muscle preservation (novice / deficit)", grade: "mixed", note: "Some contexts look better; still not first-line for most gym-goers." },
+    ],
+    interactions: [
+      { severity: "low", text: "Generally considered safe at common study doses; still not “free muscle.”" },
+    ],
+  },
+  {
+    id: "bcaa",
+    name: "BCAAs (isolated)",
+    aliases: ["bcaa", "branched chain", "leucine drink"],
+    tier: "skip",
+    tags: ["recovery", "hypertrophy"],
+    medDose: "Not recommended as a default when total daily protein is already hit",
+    window: "N/A for MED — use whole protein instead",
+    when: "Skip if protein intake is solid",
+    why: "If you already eat enough complete protein, isolated BCAAs rarely add muscle. They’re a classic “busy person wasting money” product.",
+    science:
+      "Muscle protein synthesis is driven more by total daily essential amino acids / protein than by sipping BCAAs alone. Intact protein (food or whey) covers leucine needs more effectively for most people.",
+    skipIf: "You hit ~1.6 g/kg protein from food — which is the MED path.",
+    wastedEffortNote: "BCAA pink drinks don’t outlift a chicken sandwich or whey shake for less money.",
+    claims: [
+      { outcome: "Hypertrophy when protein is already enough", grade: "weak", note: "Little added value over total daily protein." },
+      { outcome: "Fasted training comfort", grade: "mixed", note: "Some use them for hunger; whole protein or a meal is usually better." },
+    ],
+    interactions: [
+      { severity: "low", text: "Generally safe; main risk is opportunity cost and sugar in flavored products." },
+    ],
   },
 ];
 
@@ -204,7 +440,7 @@ export const MED_PRINCIPLES = [
   },
   {
     title: "Supplements: only proven MED stack",
-    body: "Creatine + enough protein are the high-ROI defaults. Caffeine is optional for session quality. Vit D / omega only if you have a real gap. Everything else is usually noise for busy schedules.",
+    body: "Creatine + enough protein are the high-ROI defaults. Caffeine is optional for session quality. Vit D / omega / magnesium only if you have a real gap. Optional pumps or stress aids come after fundamentals — most kitchen-sink pre-workouts are noise.",
   },
 ];
 
