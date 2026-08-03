@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1f7a54" />
-  <meta name="description" content="Minimum effective dose strength planner — commercial gym, recovery-aware, shareable offline app" />
+  <meta name="theme-color" content="#070708" />
+  <meta name="description" content="Iron Ledger — minimum effective dose strength training planner for commercial gyms" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="StrengthLedger" />
+  <meta name="apple-mobile-web-app-title" content="Iron Ledger" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
-  <title>StrengthLedger</title>
+  <title>Iron Ledger</title>
 </head>
 <body>
   <!-- First-run / share-friendly onboarding -->
   <div class="onboard-overlay" id="onboard" hidden>
     <div class="onboard-card">
-      <div class="onboard-kicker">StrengthLedger</div>
+      <div class="onboard-kicker">Iron Ledger</div>
       <h1 class="onboard-title" id="onboard-title">Minimum effective dose</h1>
       <div id="onboard-body"></div>
       <div class="onboard-nav">
@@ -35,13 +35,13 @@
     <header class="topbar">
       <div class="brand-row">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">S</div>
+          <img class="brand-mark" src="icons/logo-mark.png" width="48" height="48" alt="Iron Ledger" />
           <div>
-            <div class="brand-name">StrengthLedger</div>
-            <div class="brand-sub" id="greeting">MED · commercial gym · local only</div>
+            <div class="brand-name">Iron Ledger</div>
+            <div class="brand-sub" id="greeting">Strength training · MED</div>
           </div>
         </div>
-        <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch to dark mode" aria-label="Switch to dark mode">☾</button>
+        <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">☾</button>
       </div>
     </header>
 
@@ -50,7 +50,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v5</span>
+          <span class="app-version" id="app-version">v6</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div class="card coach-card" id="coach-card">
@@ -150,7 +150,7 @@
         <div class="card">
           <h2>MacroLedger</h2>
           <p class="hint">
-            Sibling diet app for daily protein/calories. StrengthLedger plans the lifts; MacroLedger tracks the fuel.
+            Sibling diet app for daily protein/calories. Iron Ledger plans the lifts; MacroLedger tracks the fuel.
             Integration can come later — hit protein totals manually for now.
           </p>
         </div>
@@ -163,12 +163,12 @@
           <div class="field">
             <label for="set-theme">Theme</label>
             <select id="set-theme">
-              <option value="system">System (match phone)</option>
-              <option value="light">Light</option>
-              <option value="midnight">Dark</option>
+              <option value="midnight">Iron dark (default)</option>
+              <option value="light">Light plate</option>
+              <option value="system">System</option>
             </select>
           </div>
-          <p class="hint">Or tap ☾ / ☀ in the top corner anytime.</p>
+          <p class="hint">Matches the steel logo look. Toggle anytime with ☾ / ☀.</p>
         </div>
         <div class="card">
           <h2>Coaching path</h2>
@@ -261,7 +261,7 @@
             <button type="button" class="ghost-btn" id="import-btn">Import backup</button>
             <input type="file" id="import-file" accept="application/json,.json" hidden />
           </div>
-          <p class="dim" style="margin-top:0.75rem">v5 · GitHub Pages · auto-update online · MED coach · local-only data</p>
+          <p class="dim" style="margin-top:0.75rem">v6 · Iron Ledger · auto-update · MED coach · local-only data</p>
         </div>
       </section>
     </main>

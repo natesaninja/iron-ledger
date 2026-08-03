@@ -1,43 +1,31 @@
-# StrengthLedger
+# Iron Ledger
 
 **Live:** https://natesaninja.github.io/strengthledger/
 
+Strength training PWA — minimum effective dose, commercial gym, recovery-aware coach.
+
 iPhone: Safari → that URL → Share → **Add to Home Screen**.
 
-**Updates** apply automatically when you’re online (same model as MacroLedger).  
-**Never delete the Home Screen icon** to force an update — that can erase local data on iPhone. Use **Settings → Refresh app** if needed.
+**Look:** Dark steel / charcoal (matches the Iron Ledger shield logo). Not the MacroLedger paper theme.
 
----
+**Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
 
-## What it is
+## Features
 
-Minimum effective dose **commercial-gym** planner with a progressive coach:
+- Progressive coach: Guided → Building → Custom  
+- Coverage debt + ~55 min sessions  
+- Why-this-lift + MED supplements  
+- Offline · light/dark · local-only data per device  
 
-| Stage | Sessions completed | Experience |
-|-------|--------------------|------------|
-| **Guided** | 0–5 | App picks full-body MED plan; why open by default; no swaps |
-| **Building** | 6–14 | Still coached; can swap / exclude exercises |
-| **Custom** | 15+ (or force in Settings) | Split, volume, exclusions — keep what works |
+Repo path stays `strengthledger` for the GitHub Pages URL; product name is **Iron Ledger**.
 
-- Recovery-aware coverage debt  
-- **Why this lift?** + coach script with evidence angle  
-- MED supplements (creatine, protein, optional caffeine; conditional Vit D / omega)  
-- Offline PWA · light/dark · share link (each phone has private data)
-
-Sibling diet app: [MacroLedger](https://natesaninja.github.io/macroledger/)
-
-## Local dev
+## Local
 
 ```powershell
 cd $env:USERPROFILE\strengthledger
 .\run.bat
 ```
 
-## Deploy
-
-Push to `main` on `natesaninja/strengthledger` with GitHub Pages from `/` (root).  
-`.nojekyll` is included so assets serve correctly.
-
 ## Disclaimer
 
-Educational training and supplement information — **not medical advice**.
+Educational — not medical advice.

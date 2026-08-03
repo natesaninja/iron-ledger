@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo.
-echo  StrengthLedger — open in browser
+echo  Iron Ledger — open in browser
 echo  http://127.0.0.1:8765
 echo.
 echo  Phone: use your PC IP on the same Wi‑Fi, or deploy like MacroLedger.

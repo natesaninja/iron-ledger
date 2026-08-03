@@ -1,5 +1,5 @@
-/* StrengthLedger service worker — same update model as MacroLedger */
-const CACHE = "strengthledger-v5";
+/* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
+const CACHE = "ironledger-v6";
 const ASSETS = [
   "./",
   "./index.html",
@@ -10,9 +10,10 @@ const ASSETS = [
   "./js/planner.js",
   "./js/store.js",
   "./js/coach.js",
-  "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/logo-mark.png",
+  "./icons/logo-full.jpg",
 ];
 
 self.addEventListener("install", (event) => {

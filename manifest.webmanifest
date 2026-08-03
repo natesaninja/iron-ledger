@@ -1,33 +1,33 @@
 {
-  "name": "StrengthLedger",
-  "short_name": "StrengthLedger",
+  "name": "Iron Ledger",
+  "short_name": "Iron Ledger",
   "lang": "en",
-  "description": "Minimum effective dose strength planner for commercial gyms — recovery-aware, offline, shareable",
+  "description": "Minimum effective dose strength training planner — commercial gym, recovery-aware, offline",
   "start_url": "./",
   "scope": "./",
   "id": "./",
   "display": "standalone",
-  "background_color": "#f6f3ee",
-  "theme_color": "#1f7a54",
+  "background_color": "#070708",
+  "theme_color": "#070708",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

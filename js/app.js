@@ -1,5 +1,5 @@
 /**
- * StrengthLedger PWA — off-day commercial gym planner
+ * Iron Ledger PWA — commercial gym MED planner
  */
 import {
   DEFAULT_SETTINGS,
@@ -26,8 +26,9 @@ import {
   buildCoachScript,
 } from "./coach.js";
 
-const APP_VERSION = "5";
+const APP_VERSION = "6";
 const LIVE_URL = "https://natesaninja.github.io/strengthledger/";
+const APP_NAME = "Iron Ledger";
 
 /** @type {ReturnType<typeof loadState>} */
 let state = loadState();
@@ -150,7 +151,8 @@ function resolveTheme(pref) {
 }
 
 function getThemePref() {
-  return localStorage.getItem("sl_theme_pref") || localStorage.getItem("sl_theme") || "system";
+  // Iron Ledger is dark-first (logo aesthetic); system still available in settings
+  return localStorage.getItem("sl_theme_pref") || localStorage.getItem("sl_theme") || "midnight";
 }
 
 function applyTheme(pref) {
@@ -159,12 +161,12 @@ function applyTheme(pref) {
   localStorage.setItem("sl_theme_pref", pref);
   localStorage.setItem("sl_theme", mode); // resolved, for older reads
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", mode === "midnight" ? "#161412" : "#1f7a54");
+  if (meta) meta.setAttribute("content", mode === "midnight" ? "#070708" : "#e4e6ea");
   const btn = document.getElementById("theme-toggle");
   if (btn) {
     const isDark = mode === "midnight";
     btn.textContent = isDark ? "☀" : "☾";
-    btn.title = isDark ? "Switch to light mode" : "Switch to dark mode";
+    btn.title = isDark ? "Light plate" : "Iron dark";
     btn.setAttribute("aria-label", btn.title);
   }
   const sel = document.getElementById("set-theme");
@@ -185,7 +187,7 @@ function initTheme() {
     // Quick toggle: always flip resolved mode to the opposite (sets explicit pref)
     const cur = document.documentElement.getAttribute("data-theme");
     applyTheme(cur === "midnight" ? "light" : "midnight");
-    toast(cur === "midnight" ? "Light mode" : "Dark mode");
+    toast(cur === "midnight" ? "Light plate" : "Iron dark");
   });
 
   // Follow OS if user chose System
@@ -288,14 +290,14 @@ function renderToday() {
         <span class="chip train">Planned</span>
         <span class="chip">~${session.estimatedMinutes} min</span>
       </div>
-      <p class="hint" style="margin:0">Preview below. Tap Why on any lift to see the reason.</p>
+      <p class="hint" style="margin:0">Preview below. Open Why on any lift for the science.</p>
     `;
     activeSessionIso = session.day;
   } else {
     hero.innerHTML = `
-      <div class="hero-kicker">StrengthLedger</div>
+      <div class="hero-kicker">Iron Ledger</div>
       <div class="hero-title">No train days set</div>
-      <p class="hint" style="margin:0">Open <strong>Plan</strong> and tap the days you can train — or load the August shift schedule.</p>
+      <p class="hint" style="margin:0">Open <strong>Plan</strong> and tap the days you can train — or load a sample schedule.</p>
     `;
   }
 
@@ -776,9 +778,9 @@ const ONBOARD_STEPS = [
   {
     title: "We do the thinking first",
     html: `
-      <p class="hint"><strong>Guided mode</strong> builds commercial-gym sessions from evidence-based minimum effective dose: compounds first, recovery windows, weekly muscle coverage — so limited off-days still count.</p>
-      <p class="hint" style="margin-top:0.65rem">You follow the coach script and mark sessions done. After enough completed workouts you unlock swaps, then full Custom — when you’re ready to keep what works and drop what doesn’t.</p>
-      <p class="dim" style="margin-top:0.65rem">Updates install automatically when online (like MacroLedger). Never delete the Home Screen icon to update.</p>
+      <p class="hint"><strong>Iron Ledger</strong> builds commercial-gym sessions from evidence-based minimum effective dose: compounds first, recovery windows, weekly muscle coverage — so limited train days still count.</p>
+      <p class="hint" style="margin-top:0.65rem"><strong>Guided mode</strong> first: follow the coach and mark sessions done. Later you unlock swaps, then full Custom — keep what works, drop what doesn’t.</p>
+      <p class="dim" style="margin-top:0.65rem">Updates install automatically when online. Never delete the Home Screen icon to update.</p>
     `,
   },
   {
@@ -866,8 +868,8 @@ function finishOnboarding(useSample) {
 function updateGreeting() {
   const name = state.settings?.displayName?.trim();
   document.getElementById("greeting").textContent = name
-    ? `${name} · MED · commercial gym`
-    : "MED · commercial gym · local only";
+    ? `${name} · strength training`
+    : "Strength training app";
 }
 
 function initEvents() {
@@ -900,9 +902,9 @@ function initEvents() {
     applyTheme(e.target.value);
     toast(
       e.target.value === "midnight"
-        ? "Dark mode"
+        ? "Iron dark"
         : e.target.value === "light"
-          ? "Light mode"
+          ? "Light plate"
           : "System theme"
     );
   });
@@ -910,7 +912,7 @@ function initEvents() {
     const blob = new Blob([exportJson(state)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `strengthledger-backup-${todayISO()}.json`;
+    a.download = `iron-ledger-backup-${todayISO()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
     toast("Backup exported");
@@ -972,8 +974,8 @@ function initEvents() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "StrengthLedger",
-          text: "MED strength planner — mark your train days, get recovery-aware gym sessions. Data stays on your phone.",
+          title: "Iron Ledger",
+          text: "Iron Ledger — MED strength planner. Mark train days, get recovery-aware gym sessions. Data stays on your phone.",
           url,
         });
       } catch {
@@ -1109,7 +1111,7 @@ async function boot() {
   }
   showOnboarding(false);
   await registerServiceWorker();
-  console.info(`StrengthLedger v${APP_VERSION}`);
+  console.info(`${APP_NAME} v${APP_VERSION}`);
 }
 
 boot();
