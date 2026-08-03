@@ -39,7 +39,7 @@ import {
   APP_PUBLIC_URL,
 } from "./invite.js";
 
-const APP_VERSION = "11";
+const APP_VERSION = "12";
 const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */

@@ -12,7 +12,8 @@
  *
  * Keep the GitHub repo PRIVATE.
  */
-export const INVITE_REQUIRED = true;
+/** Set true again for invite-only pilot. */
+export const INVITE_REQUIRED = false;
 
 /**
  * Short link tokens → SHA-256 of the real code (trim + lower case).
