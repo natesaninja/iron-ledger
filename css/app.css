@@ -1139,6 +1139,56 @@ button {
   font-family: var(--font);
   letter-spacing: 0.06em;
 }
+.invite-logo {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  margin: 0 auto 0.75rem;
+  background: #0a0a0c;
+}
+.invite-share-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.invite-share-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+}
+.invite-share-row strong {
+  display: block;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+.invite-share-row span {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.invite-share-row button {
+  min-height: 40px;
+  padding: 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--steel);
+}
+.invite-share-row button.primary {
+  background: var(--btn-grad);
+  color: var(--accent-fg);
+  border-color: var(--steel-dim);
+}
 
 /* Dose picker (MED / OED / rough) */
 .dose-panel {

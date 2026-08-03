@@ -30,13 +30,17 @@ import {
   inviteRequired,
   isInviteUnlocked,
   tryUnlockInvite,
+  tryUnlockFromUrl,
   clearInviteUnlock,
   showInviteGate,
   hideInviteGate,
+  buildInviteUrl,
+  INVITE_SHARE_SLOTS,
+  APP_PUBLIC_URL,
 } from "./invite.js";
 
-const APP_VERSION = "10";
-const LIVE_URL = "https://natesaninja.github.io/iron-ledger/";
+const APP_VERSION = "11";
+const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
 const MACROLEDGER_URL = "https://natesaninja.github.io/macroledger/";
@@ -1106,21 +1110,25 @@ function initEvents() {
     }
   };
   document.getElementById("replay-onboard")?.addEventListener("click", () => showOnboarding(true));
+  renderInviteShareList();
   document.getElementById("copy-link-btn")?.addEventListener("click", async () => {
+    const url = LIVE_URL;
     try {
-      await navigator.clipboard.writeText(location.href.split("#")[0]);
-      toast("Link copied — send to coworkers");
+      await navigator.clipboard.writeText(url);
+      toast("Base link copied (still needs ?i=… for invites)");
     } catch {
-      toast(location.href);
+      toast(url);
     }
   });
   document.getElementById("share-native-btn")?.addEventListener("click", async () => {
-    const url = location.href.split("#")[0];
+    // Default share = coworker 1 invite link (most common)
+    const url = buildInviteUrl("crew1", LIVE_URL);
+    const text = "Iron Ledger (private pilot) — open this link to unlock:\n" + url;
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Iron Ledger",
-          text: "Iron Ledger — MED strength planner. Mark train days, get recovery-aware gym sessions. Data stays on your phone.",
+          title: "Iron Ledger invite",
+          text,
           url,
         });
       } catch {
@@ -1129,11 +1137,69 @@ function initEvents() {
     } else {
       try {
         await navigator.clipboard.writeText(url);
-        toast("Link copied");
+        toast("Coworker 1 invite link copied");
       } catch {
         toast(url);
       }
     }
+  });
+}
+
+async function copyText(text, okMsg) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(okMsg || "Copied");
+    return true;
+  } catch {
+    // Fallback prompt for older WebViews
+    try {
+      window.prompt("Copy this invite link:", text);
+    } catch {
+      toast(text);
+    }
+    return false;
+  }
+}
+
+function renderInviteShareList() {
+  const box = document.getElementById("invite-share-list");
+  if (!box) return;
+  box.innerHTML = (INVITE_SHARE_SLOTS || [])
+    .map(
+      (slot) => `
+    <div class="invite-share-row" data-token="${escapeHtml(slot.token)}">
+      <div>
+        <strong>${escapeHtml(slot.label)}</strong>
+        <span>${escapeHtml(slot.blurb || "")} · ?i=${escapeHtml(slot.token)}</span>
+      </div>
+      <button type="button" class="primary" data-copy-invite="${escapeHtml(slot.token)}">Copy link</button>
+      <button type="button" data-share-invite="${escapeHtml(slot.token)}">Share</button>
+    </div>`
+    )
+    .join("");
+
+  box.querySelectorAll("[data-copy-invite]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const token = btn.getAttribute("data-copy-invite");
+      const url = buildInviteUrl(token, LIVE_URL);
+      copyText(url, `Invite link copied (${token})`);
+    });
+  });
+  box.querySelectorAll("[data-share-invite]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const token = btn.getAttribute("data-share-invite");
+      const url = buildInviteUrl(token, LIVE_URL);
+      const text = `Iron Ledger — open this link to get in:\n${url}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: "Iron Ledger invite", text, url });
+        } catch {
+          /* cancelled */
+        }
+      } else {
+        copyText(url, "Invite link copied");
+      }
+    });
   });
 }
 
@@ -1297,7 +1363,31 @@ async function boot() {
     checkForAppUpdate({ manual: true })
   );
 
-  if (inviteRequired() && !isInviteUnlocked()) {
+  // One-tap invite links: ?i=crew1 unlocks automatically
+  let unlocked = isInviteUnlocked();
+  if (inviteRequired() && !unlocked) {
+    try {
+      const fromUrl = await tryUnlockFromUrl();
+      if (fromUrl.unlocked) {
+        unlocked = true;
+        toast("Invite link accepted");
+      } else if (fromUrl.error) {
+        showInviteGate();
+        const err = document.getElementById("invite-error");
+        if (err) {
+          err.textContent = fromUrl.error;
+          err.hidden = false;
+        }
+        await registerServiceWorker();
+        console.info(`${APP_NAME} v${APP_VERSION} (bad invite link)`);
+        return;
+      }
+    } catch (e) {
+      console.warn("invite url unlock failed", e);
+    }
+  }
+
+  if (inviteRequired() && !unlocked) {
     showInviteGate();
     await registerServiceWorker();
     console.info(`${APP_NAME} v${APP_VERSION} (invite gate)`);

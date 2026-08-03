@@ -21,20 +21,26 @@
   <!-- Invite-only gate (before app shell) -->
   <div class="invite-gate" id="invite-gate" hidden>
     <div class="invite-card">
+      <img class="invite-logo" src="icons/logo-mark.png" width="64" height="64" alt="" />
       <div class="onboard-kicker">Iron Ledger</div>
       <h1 class="onboard-title">Invite only</h1>
       <p class="hint">
-        This pilot is private. Enter the invite code you were given.
-        Data stays on your phone.
+        <strong>Easiest:</strong> open the invite <em>link</em> you were texted — it unlocks automatically.
+      </p>
+      <p class="hint" style="margin-top:0.5rem">
+        Or type a short code (example: <code>crew1</code>) if you only got a code.
       </p>
       <div class="field" style="margin-top:1rem">
         <label for="invite-code">Invite code</label>
-        <input type="text" id="invite-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" />
+        <input type="text" id="invite-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="crew1" inputmode="text" />
       </div>
       <p class="dim" id="invite-error" hidden style="color:var(--danger);margin:0.35rem 0 0"></p>
       <div class="btn-row" style="margin-top:1rem">
-        <button type="button" class="primary-btn full" id="invite-unlock">Unlock</button>
+        <button type="button" class="primary-btn full" id="invite-unlock">Open app</button>
       </div>
+      <p class="dim" style="margin-top:1rem;text-align:center">
+        After unlock: Safari → Share → <strong>Add to Home Screen</strong>
+      </p>
     </div>
   </div>
 
@@ -70,7 +76,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v10</span>
+          <span class="app-version" id="app-version">v11</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div class="card coach-card" id="coach-card">
@@ -275,22 +281,20 @@
           <p class="dim" id="live-url-label" style="margin-top:0.65rem"></p>
         </div>
         <div class="card">
-          <h2>Share with coworkers</h2>
+          <h2>Share (one tap)</h2>
           <p class="hint" id="share-url-hint">
-            <strong>Invite only.</strong> Send the link <em>and</em> an invite code (from your private <code>INVITE.md</code>).
-            Data stays on each person’s phone.
+            Each button copies a <strong>personal invite link</strong>. They open it → app unlocks → done.
+            No separate code needed if they use the link.
           </p>
-          <ol class="share-steps">
-            <li>Send the app link + one invite code (DM only).</li>
-            <li>They open in <strong>Safari</strong> → enter code → Unlock.</li>
-            <li><strong>Add to Home Screen</strong> for offline use.</li>
-            <li>They set train days on Plan (their data stays private to their phone).</li>
-          </ol>
-          <div class="btn-row">
-            <button type="button" class="primary-btn" id="copy-link-btn">Copy page link</button>
-            <button type="button" class="ghost-btn" id="share-native-btn">Share…</button>
+          <div id="invite-share-list" class="invite-share-list"></div>
+          <div class="btn-row" style="margin-top:0.75rem">
+            <button type="button" class="primary-btn" id="share-native-btn">Share coworker 1…</button>
+            <button type="button" class="ghost-btn" id="copy-link-btn">Copy base link</button>
             <button type="button" class="ghost-btn" id="replay-onboard">Show intro again</button>
           </div>
+          <p class="dim" style="margin-top:0.65rem">
+            Tip: text the link in Messages. On iPhone they should open it in <strong>Safari</strong>, then Add to Home Screen.
+          </p>
         </div>
         <div class="card">
           <h2>Data</h2>
@@ -303,7 +307,7 @@
           <div class="btn-row" style="margin-top:0.5rem">
             <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
           </div>
-          <p class="dim" style="margin-top:0.75rem">v10 · Invite only · private pilot · local-only</p>
+          <p class="dim" style="margin-top:0.75rem">v11 · One-tap invite links · private pilot</p>
         </div>
       </section>
     </main>

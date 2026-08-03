@@ -2,11 +2,16 @@
 
 **Private pilot — invite only.**
 
-**Live (invite code required):** https://natesaninja.github.io/iron-ledger/
+**Live:** https://natesaninja.github.io/iron-ledger/
 
-Repo should stay **private**. Invite codes: see **`INVITE.md`** (do not share that file publicly).
+**Easiest invite:** send a one-tap link (unlocks automatically), e.g.  
+`https://natesaninja.github.io/iron-ledger/?i=crew1`  
 
-iPhone: Safari → URL → enter invite code → Share → **Add to Home Screen**.
+Full list: **`INVITE.md`**. In-app: **Settings → Share (one tap)**.
+
+Repo should stay **private**.
+
+iPhone: open invite link in Safari → Share → **Add to Home Screen**.
 
 **Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
 
