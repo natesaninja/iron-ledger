@@ -26,9 +26,11 @@ import {
   buildCoachScript,
 } from "./coach.js";
 
-const APP_VERSION = "7";
+const APP_VERSION = "8";
 const LIVE_URL = "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
+/** Sibling diet app — deep-link exercise log after a session */
+const MACROLEDGER_URL = "https://natesaninja.github.io/macroledger/";
 
 /** @type {ReturnType<typeof loadState>} */
 let state = loadState();
@@ -370,15 +372,28 @@ function renderSessionCard(session) {
 
   actions.innerHTML = `
     <button type="button" class="primary-btn" id="mark-complete">${session.completed ? "Mark incomplete" : "Mark session complete"}</button>
+    <button type="button" class="ghost-btn" id="log-macro" title="Open MacroLedger with this session prefilled">Log burn in MacroLedger</button>
     <button type="button" class="ghost-btn" id="skip-day">Remove this train day</button>
   `;
   document.getElementById("mark-complete").onclick = () => {
+    const finishing = !session.completed;
     session.completed = !session.completed;
     if (session.completed) session.exercises.forEach((e) => (e.done = true));
     saveSessionProgress(session);
     toast(session.completed ? "Session complete" : "Marked incomplete");
     renderToday();
     renderCalendar();
+    if (finishing && session.completed) {
+      // Offer MacroLedger handoff after a real finish
+      setTimeout(() => {
+        if (confirm("Log this session’s burn in MacroLedger?\n\nOpens MacroLedger and adds the workout for that day (protein tracking stays there).")) {
+          openMacroLedgerHandoff(session, { auto: true });
+        }
+      }, 280);
+    }
+  };
+  document.getElementById("log-macro").onclick = () => {
+    openMacroLedgerHandoff(session, { auto: true });
   };
   document.getElementById("skip-day").onclick = () => {
     if (!confirm(`Remove ${session.day} from train days and rebuild?`)) return;
@@ -388,6 +403,30 @@ function renderSessionCard(session) {
     rebuild();
     toast("Day removed · plan rebuilt");
   };
+}
+
+/**
+ * Deep-link into MacroLedger with session minutes + name.
+ * MacroLedger reads ?iron=1&date=&min=&name=&auto=1 and logs exercise.
+ */
+function openMacroLedgerHandoff(session, { auto = true } = {}) {
+  if (!session) return;
+  const minutes = Math.max(1, Math.round(session.estimatedMinutes || 45));
+  const name = `Iron Ledger · ${session.label || "Strength"}`;
+  const url = new URL(MACROLEDGER_URL);
+  url.searchParams.set("iron", "1");
+  url.searchParams.set("date", session.day);
+  url.searchParams.set("min", String(minutes));
+  url.searchParams.set("name", name);
+  if (auto) url.searchParams.set("auto", "1");
+  // Remember last handoff so we don’t spam if user returns
+  try {
+    sessionStorage.setItem("il_last_macro_handoff", `${session.day}:${minutes}`);
+  } catch {
+    /* ok */
+  }
+  window.open(url.toString(), "_blank", "noopener,noreferrer");
+  toast("Opening MacroLedger…");
 }
 
 function saveSessionProgress(session) {
