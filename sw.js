@@ -1,5 +1,5 @@
 /* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
-const CACHE = "ironledger-v6";
+const CACHE = "ironledger-v7";
 const ASSETS = [
   "./",
   "./index.html",
@@ -47,6 +47,7 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".css") ||
     url.pathname.endsWith("manifest.webmanifest") ||
     url.pathname.endsWith("/") ||
+    url.pathname.includes("/iron-ledger") ||
     url.pathname.includes("/strengthledger");
 
   if (isShell) {

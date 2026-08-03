@@ -26,8 +26,8 @@ import {
   buildCoachScript,
 } from "./coach.js";
 
-const APP_VERSION = "6";
-const LIVE_URL = "https://natesaninja.github.io/strengthledger/";
+const APP_VERSION = "7";
+const LIVE_URL = "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 
 /** @type {ReturnType<typeof loadState>} */
