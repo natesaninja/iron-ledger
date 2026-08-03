@@ -39,7 +39,7 @@ import {
   APP_PUBLIC_URL,
 } from "./invite.js";
 
-const APP_VERSION = "12";
+const APP_VERSION = "13";
 const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -1363,35 +1363,31 @@ async function boot() {
     checkForAppUpdate({ manual: true })
   );
 
-  // One-tap invite links: ?i=crew1 unlocks automatically
-  let unlocked = isInviteUnlocked();
-  if (inviteRequired() && !unlocked) {
+  // Invites off: always open the app. (If re-enabled later, URL ?i= token still works.)
+  try {
+    hideInviteGate();
+  } catch {
+    /* ok */
+  }
+  if (inviteRequired() && !isInviteUnlocked()) {
     try {
       const fromUrl = await tryUnlockFromUrl();
-      if (fromUrl.unlocked) {
-        unlocked = true;
-        toast("Invite link accepted");
-      } else if (fromUrl.error) {
+      if (!fromUrl.unlocked) {
         showInviteGate();
-        const err = document.getElementById("invite-error");
-        if (err) {
-          err.textContent = fromUrl.error;
-          err.hidden = false;
+        if (fromUrl.error) {
+          const err = document.getElementById("invite-error");
+          if (err) {
+            err.textContent = fromUrl.error;
+            err.hidden = false;
+          }
         }
         await registerServiceWorker();
-        console.info(`${APP_NAME} v${APP_VERSION} (bad invite link)`);
         return;
       }
     } catch (e) {
       console.warn("invite url unlock failed", e);
+      // Fail open when gate misbehaves
     }
-  }
-
-  if (inviteRequired() && !unlocked) {
-    showInviteGate();
-    await registerServiceWorker();
-    console.info(`${APP_NAME} v${APP_VERSION} (invite gate)`);
-    return;
   }
 
   hideInviteGate();

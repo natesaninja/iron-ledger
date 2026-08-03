@@ -19,15 +19,18 @@ const LS_TOKEN = "il_invite_token_v1";
 export { INVITE_SHARE_SLOTS, APP_PUBLIC_URL };
 
 export function inviteRequired() {
-  return INVITE_REQUIRED !== false && (INVITE_HASHES?.length || 0) > 0;
+  // Hard off while INVITE_REQUIRED is false — never block the app shell
+  if (INVITE_REQUIRED === false || INVITE_REQUIRED == null) return false;
+  return (INVITE_HASHES?.length || 0) > 0;
 }
 
 export function isInviteUnlocked() {
+  // Always treat as unlocked when invites are disabled
   if (!inviteRequired()) return true;
   try {
     return localStorage.getItem(LS_KEY) === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 
