@@ -11,6 +11,8 @@ const EMPTY = () => ({
   lightOnly: [],
   workOff: [],
   completedSessions: {}, // iso -> { completedAt, exercises done flags }
+  /** iso -> "rough" | "med" | "oed" — how you feel that day (change anytime) */
+  dayDose: {},
   logs: [], // optional set logs later
   onboardingComplete: false,
   version: 1,

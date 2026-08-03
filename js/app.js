@@ -8,6 +8,7 @@ import {
   SUPPLEMENTS,
   MUSCLES,
   MED_PRINCIPLES,
+  DOSE_PROFILES,
 } from "./data.js";
 import {
   buildPlan,
@@ -26,7 +27,7 @@ import {
   buildCoachScript,
 } from "./coach.js";
 
-const APP_VERSION = "8";
+const APP_VERSION = "9";
 const LIVE_URL = "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -54,7 +55,9 @@ function ensureSeeded() {
   if (!state.lightOnly) state.lightOnly = [];
   if (!state.workOff) state.workOff = [];
   if (!state.completedSessions) state.completedSessions = {};
+  if (!state.dayDose) state.dayDose = {};
   if (state.onboardingComplete == null) state.onboardingComplete = false;
+  if (!state.settings.defaultDose) state.settings.defaultDose = "med";
 
   // Existing users who already have a plan: skip forced onboarding
   if (state.trainingDays.length > 0) {
@@ -106,14 +109,22 @@ function rebuild() {
     const end = toISO(new Date(d0.getFullYear(), d0.getMonth() + 1, 1));
     horizon = { start, end };
   }
-  plan = buildPlan(days, effectiveSettings(), horizon);
+  plan = buildPlan(days, effectiveSettings(), {
+    ...horizon,
+    dayDose: state.dayDose || {},
+    doseProfiles: DOSE_PROFILES,
+  });
 
-  // Merge completed flags
+  // Merge completed flags (match by exercise id when dose rebuilds the list)
   for (const s of plan.sessions) {
     const done = state.completedSessions[s.day];
     if (done) {
       s.completed = !!done.completed;
-      if (done.exerciseDone) {
+      if (done.byExerciseId) {
+        s.exercises.forEach((ex) => {
+          ex.done = !!done.byExerciseId[ex.exerciseId];
+        });
+      } else if (done.exerciseDone) {
         s.exercises.forEach((ex, i) => {
           ex.done = !!done.exerciseDone[i];
         });
@@ -121,6 +132,35 @@ function rebuild() {
     }
   }
   renderAll();
+}
+
+function doseForDay(iso) {
+  const id = (state.dayDose && state.dayDose[iso]) || state.settings.defaultDose || "med";
+  return DOSE_PROFILES[id] || DOSE_PROFILES.med;
+}
+
+function setDayDose(iso, doseId, { rebuildSession = true } = {}) {
+  if (!DOSE_PROFILES[doseId]) return;
+  state.dayDose = state.dayDose || {};
+  state.dayDose[iso] = doseId;
+  // Switching dose mid-session un-completes the day so you can re-work the new list
+  if (state.completedSessions[iso]?.completed) {
+    state.completedSessions[iso] = {
+      ...state.completedSessions[iso],
+      completed: false,
+    };
+  }
+  persist();
+  if (rebuildSession) {
+    rebuild();
+    toast(
+      doseId === "oed"
+        ? "OED — optimum day volume"
+        : doseId === "rough"
+          ? "Rough day — lighter session"
+          : "MED — minimum effective dose"
+    );
+  }
 }
 
 function toast(msg) {
@@ -230,19 +270,60 @@ function renderCoachPanel(session) {
     completedCount: n,
     nextSession: upcoming[0] || null,
   });
+  const dose = session ? doseForDay(session.day) : DOSE_PROFILES[state.settings.defaultDose || "med"];
+  const doseLine = session
+    ? `Today’s dose: ${dose.label} (${dose.feel}). Switch Low / MED / OED above if energy changes mid-day.`
+    : `Default dose: ${dose.label}. Set per day when you have a session.`;
   const set = (id, text) => {
     const el = document.getElementById(id);
     if (el) el.textContent = text || "";
   };
   set("coach-headline", script.headline);
-  set("coach-mission", script.mission);
-  set("coach-science", script.science ? `Evidence angle: ${script.science}` : "");
+  set("coach-mission", `${script.mission} ${doseLine}`);
+  set(
+    "coach-science",
+    script.science
+      ? `Evidence angle: ${script.science} Dose: ${dose.science}`
+      : `Dose: ${dose.science}`
+  );
   set("coach-progress", script.progressNote);
   set("coach-unlock", script.unlockHint);
   const ol = document.getElementById("coach-steps");
   if (ol) {
     ol.innerHTML = (script.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
   }
+}
+
+function renderDosePicker(iso) {
+  if (!iso) return "";
+  const cur = doseForDay(iso).id;
+  const btns = ["rough", "med", "oed"]
+    .map((id) => {
+      const p = DOSE_PROFILES[id];
+      const active = cur === id ? "active" : "";
+      return `<button type="button" class="dose-btn ${active}" data-dose="${id}" data-day="${iso}" title="${escapeHtml(p.feel)}">${escapeHtml(p.short)}</button>`;
+    })
+    .join("");
+  const p = doseForDay(iso);
+  return `
+    <div class="dose-panel" id="dose-panel">
+      <div class="dose-label">How I feel → dose</div>
+      <div class="dose-btns" role="group" aria-label="Training dose">${btns}</div>
+      <p class="dose-hint"><strong>${escapeHtml(p.label)}</strong> — ${escapeHtml(p.feel)}. Change anytime; session rebuilds on the fly.</p>
+      <p class="dim dose-science">${escapeHtml(p.science)}</p>
+    </div>`;
+}
+
+function wireDosePicker() {
+  document.querySelectorAll("[data-dose]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const day = btn.dataset.day;
+      const dose = btn.dataset.dose;
+      if (!day || !dose) return;
+      activeSessionIso = day;
+      setDayDose(day, dose);
+    });
+  });
 }
 
 function renderToday() {
@@ -272,27 +353,33 @@ function renderToday() {
       <p class="hint" style="margin:0">Optional. No commercial gym pressure.</p>
     `;
   } else if (trainToday && session) {
+    const dose = doseForDay(session.day);
     hero.innerHTML = `
       <div class="hero-kicker">Today · ${weekdayShort(today)} ${today}</div>
       <div class="hero-title">${session.label}</div>
       <div class="hero-meta">
         <span class="chip train">Train day</span>
+        <span class="chip ember">${escapeHtml(dose.short)}</span>
         <span class="chip">~${session.estimatedMinutes} min</span>
         <span class="chip">${session.exercises.length} lifts</span>
         ${session.completed ? '<span class="chip ok">Done</span>' : ""}
       </div>
-      <p class="hint" style="margin:0">Commercial gym · skip anything that feels unsafe</p>
+      ${renderDosePicker(session.day)}
+      <p class="hint" style="margin:0.65rem 0 0">Commercial gym · skip anything that feels unsafe</p>
     `;
     activeSessionIso = today;
   } else if (session) {
+    const dose = doseForDay(session.day);
     hero.innerHTML = `
       <div class="hero-kicker">Next session · ${weekdayShort(session.day)} ${session.day}</div>
       <div class="hero-title">${session.label}</div>
       <div class="hero-meta">
         <span class="chip train">Planned</span>
+        <span class="chip ember">${escapeHtml(dose.short)}</span>
         <span class="chip">~${session.estimatedMinutes} min</span>
       </div>
-      <p class="hint" style="margin:0">Preview below. Open Why on any lift for the science.</p>
+      ${renderDosePicker(session.day)}
+      <p class="hint" style="margin:0.65rem 0 0">Preview below. Change dose anytime if energy shifts.</p>
     `;
     activeSessionIso = session.day;
   } else {
@@ -303,6 +390,7 @@ function renderToday() {
     `;
   }
 
+  wireDosePicker();
   renderSessionCard(session);
   renderUpcoming(today);
 }
@@ -430,9 +518,15 @@ function openMacroLedgerHandoff(session, { auto = true } = {}) {
 }
 
 function saveSessionProgress(session) {
+  const byExerciseId = {};
+  session.exercises.forEach((e) => {
+    byExerciseId[e.exerciseId] = !!e.done;
+  });
   state.completedSessions[session.day] = {
     completed: !!session.completed,
     exerciseDone: session.exercises.map((e) => !!e.done),
+    byExerciseId,
+    doseId: session.doseId || doseForDay(session.day).id,
     savedAt: new Date().toISOString(),
   };
   persist();
@@ -644,6 +738,8 @@ function renderSettingsForm() {
   document.getElementById("set-rec").value = s.recoveryMultiplier;
   const coachSel = document.getElementById("set-coach");
   if (coachSel) coachSel.value = s.coachMode || "auto";
+  const doseSel = document.getElementById("set-default-dose");
+  if (doseSel) doseSel.value = s.defaultDose || "med";
   const sessionsLabel = document.getElementById("sessions-done-label");
   if (sessionsLabel) {
     sessionsLabel.textContent = `${n} session${n === 1 ? "" : "s"} completed · current stage: ${stage.label}`;
@@ -687,6 +783,8 @@ function saveSettingsFromForm() {
   state.settings.sessionMinutes = +document.getElementById("set-minutes").value || 55;
   const coachSel = document.getElementById("set-coach");
   if (coachSel) state.settings.coachMode = coachSel.value;
+  const doseSel = document.getElementById("set-default-dose");
+  if (doseSel) state.settings.defaultDose = doseSel.value || "med";
 
   // Recompute caps after mode change
   const mode = state.settings.coachMode || "auto";

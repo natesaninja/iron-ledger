@@ -1111,3 +1111,58 @@ button {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
 }
+
+/* Dose picker (MED / OED / rough) */
+.dose-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-inset);
+  position: relative;
+  z-index: 1;
+}
+.dose-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--steel-dim);
+  margin-bottom: 0.45rem;
+}
+.dose-btns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+.dose-btn {
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--steel-dim);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dose-btn:hover {
+  border-color: var(--steel-dim);
+  color: var(--steel-bright);
+}
+.dose-btn.active {
+  background: var(--btn-grad);
+  color: var(--accent-fg);
+  border-color: var(--steel);
+  box-shadow: var(--shadow-inset);
+}
+.dose-hint {
+  margin: 0.55rem 0 0.25rem;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.dose-science {
+  margin: 0.25rem 0 0;
+  line-height: 1.4;
+}

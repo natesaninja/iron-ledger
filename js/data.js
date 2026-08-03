@@ -208,9 +208,56 @@ export const MED_PRINCIPLES = [
   },
 ];
 
+/**
+ * Training dose by readiness. Switch any day (or mid-session) — plan rebuilds.
+ * MED = least that still progresses · OED = sweet-spot volume when recovered · Rough = protect recovery
+ */
+export const DOSE_PROFILES = {
+  rough: {
+    id: "rough",
+    label: "Rough day",
+    short: "Low",
+    feel: "Feel bad / beat up / low sleep",
+    science:
+      "When recovery is poor, extra volume mostly adds fatigue. A short session maintains the habit and some stimulus without digging a deeper hole.",
+    sessionMinutes: 40,
+    setScale: 0.75,
+    maxExercises: 5,
+    isolationBonus: 0,
+    recoveryBump: 0.1,
+  },
+  med: {
+    id: "med",
+    label: "Minimum effective dose",
+    short: "MED",
+    feel: "Okay / normal energy",
+    science:
+      "Minimum effective dose is the least hard work that still drives progress for most people with limited time — compounds first, enough weekly sets, then stop.",
+    sessionMinutes: 55,
+    setScale: 1.0,
+    maxExercises: 7,
+    isolationBonus: 0,
+    recoveryBump: 0,
+  },
+  oed: {
+    id: "oed",
+    label: "Optimum effective dose",
+    short: "OED",
+    feel: "Feel strong / recovered / more time",
+    science:
+      "Optimum effective dose is more volume than the bare minimum when recovery and time allow — still short of junk volume. Useful on good days to push adaptation harder without maxing recoverable volume every session.",
+    sessionMinutes: 75,
+    setScale: 1.2,
+    maxExercises: 9,
+    isolationBonus: 1,
+    recoveryBump: -0.05,
+  },
+};
+
 export const DEFAULT_SETTINGS = {
   sessionMinutes: 55,
   splitPreference: "auto",
+  /** Baseline weekly coverage targets (stable; day dose changes session size, not the yardstick) */
   medMultiplier: 0.9,
   recoveryMultiplier: 1.15,
   excludedExercises: ["walking_lunge"],
@@ -218,6 +265,8 @@ export const DEFAULT_SETTINGS = {
   displayName: "",
   /** auto = unlock by completed sessions · guided | building | custom = force stage */
   coachMode: "auto",
+  /** Default dose when a day has no override: rough | med | oed */
+  defaultDose: "med",
 };
 
 /** August 2026 shift-aware defaults (can clear/edit in app) */

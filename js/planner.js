@@ -328,8 +328,13 @@ function explainPick(ex, debtMap, label) {
   return lines.join(" ");
 }
 
-function appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutesUsed, budget, sets, label) {
-  let s = sets ?? ex.sets;
+function scaleSets(base, setScale) {
+  const s = Math.round((base || 3) * (setScale || 1));
+  return Math.max(2, Math.min(5, s));
+}
+
+function appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutesUsed, budget, sets, label, setScale) {
+  let s = sets != null ? sets : scaleSets(ex.sets, setScale);
   let est = s * ex.minPerSet;
   if (minutesUsed + est > budget && s > 2) {
     s = 2;
@@ -357,55 +362,70 @@ function appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutesUsed, budge
   return minutesUsed + est;
 }
 
-function buildSession(iso, label, focusList, debts, recovery, settings, rationale) {
+/**
+ * @param {object} [dose] from DOSE_PROFILES — sessionMinutes, setScale, maxExercises, isolationBonus
+ */
+function buildSession(iso, label, focusList, debts, recovery, settings, rationale, dose = null) {
   const focus = new Set(focusList);
   const debtMap = Object.fromEntries(debts.map((d) => [d.muscleId, { ...d }]));
-  const budget = (settings.sessionMinutes || 55) - 5;
+  const setScale = dose?.setScale ?? 1;
+  const maxEx = dose?.maxExercises ?? 7;
+  const isolationBonus = dose?.isolationBonus ?? 0;
+  const budget = (dose?.sessionMinutes || settings.sessionMinutes || 55) - 5;
   const chosen = [];
   const usedIds = new Set();
   const usedPatterns = new Set();
   let minutes = 0;
 
+  const push = (ex, fixedSets = null) => {
+    minutes = appendEx(
+      chosen, ex, debtMap, usedIds, usedPatterns, minutes, budget, fixedSets, label, setScale
+    );
+  };
+
   for (const slot of slotsFor(label)) {
-    if (minutes >= budget - 6) break;
+    if (minutes >= budget - 6 || chosen.length >= maxEx) break;
     const ex = pickEx(focus, debtMap, recovery, iso, usedIds, usedPatterns, chosen, settings, slot.patterns, slot.roles);
-    if (ex) minutes = appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutes, budget, null, label);
+    if (ex) push(ex);
   }
 
-  if (minutes < budget - 8 && chosen.length < 5) {
+  if (minutes < budget - 8 && chosen.length < Math.min(5, maxEx)) {
     const ex = pickEx(focus, debtMap, recovery, iso, usedIds, usedPatterns, chosen, settings, null, ["compound", "accessory"]);
-    if (ex) minutes = appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutes, budget, null, label);
+    if (ex) push(ex);
   }
 
-  while (minutes < budget - 4 && chosen.length < 7) {
+  const fillCap = Math.min(maxEx, 7 + isolationBonus);
+  while (minutes < budget - 4 && chosen.length < fillCap) {
     const ex = pickEx(focus, debtMap, recovery, iso, usedIds, usedPatterns, chosen, settings, null, ["isolation", "accessory"]);
     if (!ex) break;
     const counts = primaryCounts(chosen);
-    if (ex.primary.every((m) => (counts[m] || 0) >= 6)) {
+    if (ex.primary.every((m) => (counts[m] || 0) >= 6 + isolationBonus * 2)) {
       usedIds.add(ex.id);
       continue;
     }
-    minutes = appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutes, budget, null, label);
+    push(ex);
   }
 
   for (const eid of ["standing_calf", "cable_crunch", "face_pull"]) {
-    if (minutes >= budget - 3 || chosen.length >= 8) break;
+    if (minutes >= budget - 3 || chosen.length >= maxEx) break;
     if (usedIds.has(eid) || (settings.excludedExercises || []).includes(eid)) continue;
     const ex = EXERCISES.find((e) => e.id === eid);
     if (!ex) continue;
     if (!ex.primary.some((m) => focus.has(m)) && !label.includes("Full Body")) continue;
     const d0 = debtMap[ex.primary[0]];
     if (d0 && d0.debt <= 0 && d0.score < 0.5) continue;
-    minutes = appendEx(chosen, ex, debtMap, usedIds, usedPatterns, minutes, budget, 2, label);
+    push(ex, scaleSets(2, setScale));
   }
 
   return {
     day: iso,
-    label,
+    label: label + (dose?.id === "oed" ? " · OED" : dose?.id === "rough" ? " · Low" : ""),
     focus: focusList,
     exercises: chosen,
     estimatedMinutes: Math.round(minutes * 10) / 10,
-    rationale,
+    rationale: rationale + (dose ? ` Dose: ${dose.label}.` : ""),
+    doseId: dose?.id || "med",
+    doseLabel: dose?.label || "Minimum effective dose",
     completed: false,
   };
 }
@@ -413,7 +433,7 @@ function buildSession(iso, label, focusList, debts, recovery, settings, rational
 /**
  * @param {string[]} trainingDays ISO dates
  * @param {object} settings
- * @param {{start?:string,end?:string}} [horizon]
+ * @param {{start?:string,end?:string, dayDose?: Record<string,string>, doseProfiles?: object}} [horizon]
  */
 export function buildPlan(trainingDays, settings, horizon = {}) {
   const days = [...new Set(trainingDays)].sort();
@@ -435,7 +455,17 @@ export function buildPlan(trainingDays, settings, horizon = {}) {
   const targets = {};
   for (const m of MUSCLES) targets[m.id] = weeklyTarget(m, settings) * weeks;
 
-  const recovery = new RecoveryState(settings);
+  const doseProfiles = horizon.doseProfiles || {};
+  const dayDoseMap = horizon.dayDose || {};
+  const defaultDoseId = settings.defaultDose || "med";
+
+  // Recovery clock can soften slightly on rough days (slower assumed recovery)
+  const recovery = new RecoveryState({
+    ...settings,
+    recoveryMultiplier:
+      (settings.recoveryMultiplier || 1) +
+      (doseProfiles[defaultDoseId]?.recoveryBump || 0),
+  });
   const weeklySets = {}; // weekKey -> muscle -> sets
   const sessions = [];
   const coverage = {};
@@ -454,6 +484,9 @@ export function buildPlan(trainingDays, settings, horizon = {}) {
     const remaining = nWeek - idx;
     const wsets = weeklySets[wk] || {};
 
+    const doseId = dayDoseMap[d] || defaultDoseId;
+    const dose = doseProfiles[doseId] || doseProfiles.med || null;
+
     const debts = computeDebts(wsets, recovery, d, settings, remaining);
     const { label, focus } = pickLabel(debts, settings.splitPreference || "auto", idx, nWeek);
     const top = debts
@@ -462,7 +495,7 @@ export function buildPlan(trainingDays, settings, horizon = {}) {
       .map((x) => MUSCLE_MAP[x.muscleId].name);
     const rationale = `${nWeek} session${nWeek === 1 ? "" : "s"} this week → ${label}. Highest debt: ${top.join(", ") || "balanced"}.`;
 
-    const session = buildSession(d, label, focus, debts, recovery, settings, rationale);
+    const session = buildSession(d, label, focus, debts, recovery, settings, rationale, dose);
     sessions.push(session);
 
     const contrib = sessionContrib(session);

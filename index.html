@@ -50,7 +50,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v8</span>
+          <span class="app-version" id="app-version">v9</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div class="card coach-card" id="coach-card">
@@ -174,6 +174,21 @@
           <p class="hint">Matches the steel logo look. Toggle anytime with ☾ / ☀.</p>
         </div>
         <div class="card">
+          <h2>Default training dose</h2>
+          <p class="hint">
+            <strong>MED</strong> = minimum to progress · <strong>OED</strong> = optimum when you feel strong ·
+            <strong>Low</strong> = rough day. Override any day on Today if energy changes (even mid-session).
+          </p>
+          <div class="field">
+            <label for="set-default-dose">Default for new sessions</label>
+            <select id="set-default-dose">
+              <option value="med">MED — minimum effective dose</option>
+              <option value="oed">OED — optimum effective dose</option>
+              <option value="rough">Low — rough / recovery day</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
           <h2>Coaching path</h2>
           <p class="hint" id="coach-stage-detail">
             Start <strong>Guided</strong> (we decide). After enough completed sessions you unlock swaps, then full Custom — when you’re back to choosing what works.
@@ -264,7 +279,7 @@
             <button type="button" class="ghost-btn" id="import-btn">Import backup</button>
             <input type="file" id="import-file" accept="application/json,.json" hidden />
           </div>
-          <p class="dim" style="margin-top:0.75rem">v8 · Iron Ledger · MacroLedger handoff · local-only data</p>
+          <p class="dim" style="margin-top:0.75rem">v9 · MED / OED by feel · MacroLedger handoff · local-only</p>
         </div>
       </section>
     </main>
