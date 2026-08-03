@@ -1,19 +1,22 @@
 # Iron Ledger
 
-**Live:** https://natesaninja.github.io/iron-ledger/
+**Private pilot — invite only.**
 
-Strength training PWA — minimum effective dose, commercial gym, recovery-aware coach.
+**Live (invite code required):** https://natesaninja.github.io/iron-ledger/
 
-iPhone: Safari → that URL → Share → **Add to Home Screen**.
+Repo should stay **private**. Invite codes: see **`INVITE.md`** (do not share that file publicly).
+
+iPhone: Safari → URL → enter invite code → Share → **Add to Home Screen**.
 
 **Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
 
 ## Features
 
+- Invite-only unlock per device  
 - Progressive coach: Guided → Building → Custom  
-- Coverage debt + ~55 min sessions  
-- Why-this-lift + MED supplements  
-- Offline · iron dark / light plate · local-only data per device  
+- MED / OED / rough dose by feel  
+- MacroLedger session handoff  
+- Offline · local-only data per device  
 
 ## Local
 
@@ -21,6 +24,8 @@ iPhone: Safari → that URL → Share → **Add to Home Screen**.
 cd $env:USERPROFILE\strengthledger
 .\run.bat
 ```
+
+Use an invite code from `INVITE.md` on first load.
 
 ## Disclaimer
 

@@ -18,6 +18,26 @@
   <title>Iron Ledger</title>
 </head>
 <body>
+  <!-- Invite-only gate (before app shell) -->
+  <div class="invite-gate" id="invite-gate" hidden>
+    <div class="invite-card">
+      <div class="onboard-kicker">Iron Ledger</div>
+      <h1 class="onboard-title">Invite only</h1>
+      <p class="hint">
+        This pilot is private. Enter the invite code you were given.
+        Data stays on your phone.
+      </p>
+      <div class="field" style="margin-top:1rem">
+        <label for="invite-code">Invite code</label>
+        <input type="text" id="invite-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" />
+      </div>
+      <p class="dim" id="invite-error" hidden style="color:var(--danger);margin:0.35rem 0 0"></p>
+      <div class="btn-row" style="margin-top:1rem">
+        <button type="button" class="primary-btn full" id="invite-unlock">Unlock</button>
+      </div>
+    </div>
+  </div>
+
   <!-- First-run / share-friendly onboarding -->
   <div class="onboard-overlay" id="onboard" hidden>
     <div class="onboard-card">
@@ -50,7 +70,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v9</span>
+          <span class="app-version" id="app-version">v10</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div class="card coach-card" id="coach-card">
@@ -257,13 +277,14 @@
         <div class="card">
           <h2>Share with coworkers</h2>
           <p class="hint" id="share-url-hint">
-            Everyone uses the same app link. Data stays <strong>on each person’s phone</strong> — nothing is shared to a server.
+            <strong>Invite only.</strong> Send the link <em>and</em> an invite code (from your private <code>INVITE.md</code>).
+            Data stays on each person’s phone.
           </p>
           <ol class="share-steps">
-            <li>Open the live link in <strong>Safari</strong> (iPhone) or Chrome (Android).</li>
-            <li><strong>Add to Home Screen</strong> for an app icon + offline use.</li>
-            <li>On first open: set your name, session length, then mark <strong>your</strong> train days on Plan.</li>
-            <li>Optional: export a backup JSON if you switch phones.</li>
+            <li>Send the app link + one invite code (DM only).</li>
+            <li>They open in <strong>Safari</strong> → enter code → Unlock.</li>
+            <li><strong>Add to Home Screen</strong> for offline use.</li>
+            <li>They set train days on Plan (their data stays private to their phone).</li>
           </ol>
           <div class="btn-row">
             <button type="button" class="primary-btn" id="copy-link-btn">Copy page link</button>
@@ -279,7 +300,10 @@
             <button type="button" class="ghost-btn" id="import-btn">Import backup</button>
             <input type="file" id="import-file" accept="application/json,.json" hidden />
           </div>
-          <p class="dim" style="margin-top:0.75rem">v9 · MED / OED by feel · MacroLedger handoff · local-only</p>
+          <div class="btn-row" style="margin-top:0.5rem">
+            <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
+          </div>
+          <p class="dim" style="margin-top:0.75rem">v10 · Invite only · private pilot · local-only</p>
         </div>
       </section>
     </main>

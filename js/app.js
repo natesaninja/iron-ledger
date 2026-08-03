@@ -26,8 +26,16 @@ import {
   stageCapabilities,
   buildCoachScript,
 } from "./coach.js";
+import {
+  inviteRequired,
+  isInviteUnlocked,
+  tryUnlockInvite,
+  clearInviteUnlock,
+  showInviteGate,
+  hideInviteGate,
+} from "./invite.js";
 
-const APP_VERSION = "9";
+const APP_VERSION = "10";
 const LIVE_URL = "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -1226,14 +1234,44 @@ async function registerServiceWorker() {
   }
 }
 
-// ---------- start ----------
-async function boot() {
-  initTheme();
-  initNav();
-  initEvents();
-  document.getElementById("btn-check-update")?.addEventListener("click", () =>
-    checkForAppUpdate({ manual: true })
-  );
+function wireInviteGate() {
+  const input = document.getElementById("invite-code");
+  const err = document.getElementById("invite-error");
+  const btn = document.getElementById("invite-unlock");
+  const submit = async () => {
+    if (err) {
+      err.hidden = true;
+      err.textContent = "";
+    }
+    const result = await tryUnlockInvite(input?.value || "");
+    if (!result.ok) {
+      if (err) {
+        err.textContent = result.error || "Invalid code";
+        err.hidden = false;
+      }
+      toast(result.error || "Invalid code");
+      return;
+    }
+    hideInviteGate();
+    toast("Unlocked — welcome");
+    startAppShell();
+  };
+  btn?.addEventListener("click", submit);
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    }
+  });
+  document.getElementById("revoke-invite")?.addEventListener("click", () => {
+    if (!confirm("Lock this device? You’ll need an invite code again to open Iron Ledger.")) return;
+    clearInviteUnlock();
+    showInviteGate();
+    toast("Device locked");
+  });
+}
+
+function startAppShell() {
   ensureSeeded();
   if (state.trainingDays[0]) {
     const d = parseISO(state.trainingDays[0]);
@@ -1247,6 +1285,27 @@ async function boot() {
     persist();
   }
   showOnboarding(false);
+}
+
+// ---------- start ----------
+async function boot() {
+  initTheme();
+  initNav();
+  initEvents();
+  wireInviteGate();
+  document.getElementById("btn-check-update")?.addEventListener("click", () =>
+    checkForAppUpdate({ manual: true })
+  );
+
+  if (inviteRequired() && !isInviteUnlocked()) {
+    showInviteGate();
+    await registerServiceWorker();
+    console.info(`${APP_NAME} v${APP_VERSION} (invite gate)`);
+    return;
+  }
+
+  hideInviteGate();
+  startAppShell();
   await registerServiceWorker();
   console.info(`${APP_NAME} v${APP_VERSION}`);
 }
