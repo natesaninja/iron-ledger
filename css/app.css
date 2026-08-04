@@ -542,6 +542,265 @@ button {
   color: var(--steel-bright);
 }
 
+.ex-main {
+  min-width: 0;
+}
+
+.ex-item.skipped .ex-name {
+  opacity: 0.65;
+}
+
+.prog-line {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--ember);
+  line-height: 1.35;
+}
+
+.warmup-line {
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.cues-line {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.set-log {
+  margin-top: 0.55rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+}
+
+.set-head {
+  display: none;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: 1.2rem 1fr auto 1fr 3.2rem auto;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.set-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.set-row input[type="number"] {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.35rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.set-x {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.set-hard {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.set-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.ghost-btn.tiny,
+button.tiny {
+  min-height: 34px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+}
+
+.skip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.skip-row select {
+  flex: 1;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.rest-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: 100%;
+  margin-bottom: 0.35rem;
+}
+
+.protein-hint {
+  width: 100%;
+  margin: 0 0 0.5rem;
+}
+
+/* Rest timer sticky bar */
+.rest-timer-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  padding: 0.45rem var(--app-pad-x);
+  background: var(--ember-dim);
+  border-top: 1px solid var(--ember);
+  backdrop-filter: blur(12px);
+}
+
+.rest-timer-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.25rem 0.65rem;
+  align-items: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.rest-timer-inner strong {
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ember);
+  font-size: 0.75rem;
+}
+
+.rest-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.25rem;
+  grid-column: 2;
+}
+
+.rest-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.rest-bar i {
+  display: block;
+  height: 100%;
+  background: var(--ember);
+  transition: width 0.2s linear;
+}
+
+/* Coverage dual bars */
+.cov-legend {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+}
+
+.cov-row.dual {
+  align-items: center;
+}
+
+.cov-dual {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cov-bar.logged i {
+  background: var(--ember);
+}
+
+.cov-nums {
+  text-align: right;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  min-width: 3.5rem;
+}
+
+.tiny {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+/* PR board */
+.pr-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.pr-row:last-child {
+  border-bottom: none;
+}
+.pr-label {
+  font-weight: 700;
+  color: var(--steel);
+  min-width: 5.5rem;
+}
+
+.stack-card h2 {
+  margin-bottom: 0.25rem;
+}
+
+.stack-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.stack-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  min-height: 40px;
+}
+
+.check-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.55rem 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
 /* —— Calendar —— */
 .cal-head {
   display: flex;

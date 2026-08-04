@@ -371,7 +371,10 @@ function buildSession(iso, label, focusList, debts, recovery, settings, rational
   const setScale = dose?.setScale ?? 1;
   const maxEx = dose?.maxExercises ?? 7;
   const isolationBonus = dose?.isolationBonus ?? 0;
-  const budget = (dose?.sessionMinutes || settings.sessionMinutes || 55) - 5;
+  // Time-box / sessionMinutes is a hard cap; dose profile is a soft target
+  const doseMin = dose?.sessionMinutes || 55;
+  const cap = settings.sessionMinutes || 55;
+  const budget = Math.min(doseMin, cap) - 5;
   const chosen = [];
   const usedIds = new Set();
   const usedPatterns = new Set();
@@ -532,13 +535,28 @@ export function substitutesFor(exerciseId, settings) {
   const ex = EXERCISES.find((e) => e.id === exerciseId);
   if (!ex) return [];
   const excluded = new Set(settings.excludedExercises || []);
-  return EXERCISES.filter(
+  const pref = new Set(settings.preferredExercises || []);
+  const scored = EXERCISES.filter(
     (e) =>
       e.id !== exerciseId &&
       !excluded.has(e.id) &&
       e.pattern === ex.pattern &&
       e.primary.some((m) => ex.primary.includes(m))
-  ).slice(0, 8);
+  ).map((e) => {
+    const overlap = e.primary.filter((m) => ex.primary.includes(m)).length;
+    const timeDiff = Math.abs((e.minPerSet || 2) - (ex.minPerSet || 2));
+    let score = overlap * 10 - timeDiff;
+    if (pref.has(e.id)) score += 5;
+    if (e.role === ex.role) score += 2;
+    const muscles = e.primary.map((id) => MUSCLE_MAP[id]?.name || id).join(" & ");
+    return {
+      ...e,
+      jobLine: `Same ${e.pattern.replace(/_/g, " ")} job · ${muscles}`,
+      _score: score,
+    };
+  });
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, 10);
 }
 
 export function muscleName(id) {

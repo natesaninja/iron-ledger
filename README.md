@@ -12,11 +12,15 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 ## Features
 
 - Invite-only unlock per device  
-- Progressive coach: Guided → Building → Custom  
+- Progressive coach: Guided → Building → Custom (quality-gated by logged hard sets)  
 - MED / OED / rough dose by feel  
-- **Supps** — training evidence browser (search, claim grades, dose/timing, cautions, personal stack)  
-- MacroLedger session handoff  
-- Offline · local-only data per device  
+- **Set log** — weight × reps × RPE, last-time / next target, warm-ups, form cues  
+- Rest timer · skip reasons · time-box · 7-day deload  
+- **Cover** — planned vs logged hard sets, session history, quiet PR board  
+- **Supps** — evidence browser + personal stack + daily check-in  
+- MacroLedger session handoff · protein hint from bodyweight  
+- Offline · local-only data per device · export/import backup  
+
 
 ## Local
 

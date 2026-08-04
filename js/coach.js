@@ -33,15 +33,28 @@ export function countCompletedSessions(completedSessions = {}) {
 
 /**
  * @param {number} completedCount
- * @param {{ mode?: 'auto'|'guided'|'building'|'custom', forceCustom?: boolean }} prefs
+ * @param {{ mode?: 'auto'|'guided'|'building'|'custom', forceCustom?: boolean, qualityCount?: number, useQualityGates?: boolean }} prefs
  */
 export function resolveCoachStage(completedCount, prefs = {}) {
   if (prefs.forceCustom || prefs.mode === "custom") return COACH_STAGES.custom;
   if (prefs.mode === "guided") return COACH_STAGES.guided;
   if (prefs.mode === "building") return COACH_STAGES.building;
-  // auto by results
-  if (completedCount >= COACH_STAGES.custom.minSessions) return COACH_STAGES.custom;
-  if (completedCount >= COACH_STAGES.building.minSessions) return COACH_STAGES.building;
+  // Auto: prefer quality sessions (logged hard work) when provided
+  const n =
+    prefs.useQualityGates && prefs.qualityCount != null
+      ? Math.max(completedCount * 0.5, prefs.qualityCount) // never punish pure checkmarks forever, but gate on quality
+      : completedCount;
+  // Quality path: need qualityCount thresholds; fall back to raw completions if no logs yet
+  if (prefs.useQualityGates && prefs.qualityCount != null) {
+    const q = prefs.qualityCount;
+    // If user has completions but no logs yet, still allow unlock by raw count (migration)
+    const effective = q > 0 ? q : completedCount;
+    if (effective >= COACH_STAGES.custom.minSessions) return COACH_STAGES.custom;
+    if (effective >= COACH_STAGES.building.minSessions) return COACH_STAGES.building;
+    return COACH_STAGES.guided;
+  }
+  if (n >= COACH_STAGES.custom.minSessions) return COACH_STAGES.custom;
+  if (n >= COACH_STAGES.building.minSessions) return COACH_STAGES.building;
   return COACH_STAGES.guided;
 }
 

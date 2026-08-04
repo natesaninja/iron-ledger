@@ -492,6 +492,11 @@ export const DOSE_PROFILES = {
 
 export const DEFAULT_SETTINGS = {
   sessionMinutes: 55,
+  /**
+   * Hard time-box for the planner (minutes). 0 = use sessionMinutes only.
+   * Trims volume via session budget the same way as sessionMinutes.
+   */
+  timeBoxMinutes: 0,
   splitPreference: "auto",
   /** Baseline weekly coverage targets (stable; day dose changes session size, not the yardstick) */
   medMultiplier: 0.9,
@@ -503,6 +508,14 @@ export const DEFAULT_SETTINGS = {
   coachMode: "auto",
   /** Default dose when a day has no override: rough | med | oed */
   defaultDose: "med",
+  /** Prefer quality-gated unlocks (logged hard sets) when coachMode is auto */
+  coachQualityGates: true,
+  /** Show warm-up ladder under each lift */
+  showWarmups: true,
+  /** Default rest timer seconds when starting from compound */
+  restDefaultSec: 90,
+  /** Optional bodyweight (kg) for protein hints — local only */
+  bodyweightKg: null,
 };
 
 /** August 2026 shift-aware defaults (can clear/edit in app) */

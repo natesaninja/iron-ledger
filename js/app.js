@@ -39,8 +39,26 @@ import {
   INVITE_SHARE_SLOTS,
   APP_PUBLIC_URL,
 } from "./invite.js";
+import {
+  FORM_CUES,
+  SKIP_REASONS,
+  REST_PRESETS,
+  restDefaultForRole,
+  ensureExerciseLog,
+  ensureDayLog,
+  lastWorkingSets,
+  suggestNext,
+  formatLoad,
+  warmupLadder,
+  computePrBoard,
+  buildHistory,
+  loggedCoverage,
+  countQualitySessions,
+  roughDaysRecent,
+  seedSetsFromSuggestion,
+} from "./logging.js";
 
-const APP_VERSION = "14";
+const APP_VERSION = "15";
 const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -58,6 +76,8 @@ let calMonth = new Date().getMonth(); // 0-index
 let activeSessionIso = null;
 let swapCtx = null; // { sessionIso, exIndex }
 let onboardStep = 0;
+/** Rest timer: endsAt ms, total sec, interval id */
+let restTimer = { endsAt: null, totalSec: 90, intervalId: null };
 
 // ---------- bootstrap ----------
 function ensureSeeded() {
@@ -73,8 +93,15 @@ function ensureSeeded() {
   if (!state.completedSessions) state.completedSessions = {};
   if (!state.dayDose) state.dayDose = {};
   if (!Array.isArray(state.myStack)) state.myStack = [];
+  if (!state.logs || typeof state.logs !== "object" || Array.isArray(state.logs)) state.logs = {};
+  if (!state.stackCheckins || typeof state.stackCheckins !== "object") state.stackCheckins = {};
+  if (state.deloadUntil === undefined) state.deloadUntil = null;
   if (state.onboardingComplete == null) state.onboardingComplete = false;
   if (!state.settings.defaultDose) state.settings.defaultDose = "med";
+  if (state.settings.timeBoxMinutes == null) state.settings.timeBoxMinutes = 0;
+  if (state.settings.coachQualityGates == null) state.settings.coachQualityGates = true;
+  if (state.settings.showWarmups == null) state.settings.showWarmups = true;
+  if (state.settings.restDefaultSec == null) state.settings.restDefaultSec = 90;
 
   // Existing users who already have a plan: skip forced onboarding
   if (state.trainingDays.length > 0) {
@@ -101,10 +128,12 @@ function persist() {
 
 function getCoach() {
   const n = countCompletedSessions(state.completedSessions);
+  const q = countQualitySessions(state.completedSessions, state.logs);
   const mode = state.settings.coachMode || "auto";
-  const stage = resolveCoachStage(n, { mode });
+  const useQualityGates = state.settings.coachQualityGates !== false;
+  const stage = resolveCoachStage(n, { mode, qualityCount: q, useQualityGates });
   const caps = stageCapabilities(stage.id);
-  return { n, stage, caps };
+  return { n, q, stage, caps };
 }
 
 function effectiveSettings() {
@@ -114,7 +143,33 @@ function effectiveSettings() {
   if (caps.lockFullBody) {
     s.splitPreference = "full_body";
   }
+  // Time-box overrides session minutes when set
+  const box = +s.timeBoxMinutes || 0;
+  if (box >= 25) {
+    s.sessionMinutes = box;
+  }
   return s;
+}
+
+function isDeloadActive(iso = todayISO()) {
+  if (!state.deloadUntil) return false;
+  const today = todayISO();
+  // Only today → deloadUntil (never rewrite past session doses)
+  return iso >= today && iso <= state.deloadUntil;
+}
+
+/** Day dose map with deload forcing rough for active window */
+function effectiveDayDose() {
+  const map = { ...(state.dayDose || {}) };
+  if (!state.deloadUntil) return map;
+  const today = todayISO();
+  // Force rough on train days from today through deloadUntil
+  for (const d of state.trainingDays || []) {
+    if (d >= today && d <= state.deloadUntil) {
+      map[d] = "rough";
+    }
+  }
+  return map;
 }
 
 function rebuild() {
@@ -128,7 +183,7 @@ function rebuild() {
   }
   plan = buildPlan(days, effectiveSettings(), {
     ...horizon,
-    dayDose: state.dayDose || {},
+    dayDose: effectiveDayDose(),
     doseProfiles: DOSE_PROFILES,
   });
 
@@ -152,6 +207,7 @@ function rebuild() {
 }
 
 function doseForDay(iso) {
+  if (isDeloadActive(iso)) return DOSE_PROFILES.rough;
   const id = (state.dayDose && state.dayDose[iso]) || state.settings.defaultDose || "med";
   return DOSE_PROFILES[id] || DOSE_PROFILES.med;
 }
@@ -304,12 +360,22 @@ function renderCoachPanel(session) {
       ? `Evidence angle: ${script.science} Dose: ${dose.science}`
       : `Dose: ${dose.science}`
   );
-  set("coach-progress", script.progressNote);
+  const roughN = roughDaysRecent(state.dayDose, 7, todayISO());
+  let progress = script.progressNote || "";
+  if (roughN >= 2) {
+    progress += ` · ${roughN} Rough days in 7 — protect sleep; consider deload or extra rest.`;
+  }
+  if (isDeloadActive()) {
+    progress += ` · Deload active through ${state.deloadUntil} (sessions forced Low).`;
+  }
+  set("coach-progress", progress);
   set("coach-unlock", script.unlockHint);
   const ol = document.getElementById("coach-steps");
   if (ol) {
     ol.innerHTML = (script.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
   }
+  renderStackCheckinBanner();
+  renderRestTimerBar();
 }
 
 function renderDosePicker(iso) {
@@ -413,6 +479,10 @@ function renderToday() {
   renderUpcoming(today);
 }
 
+function getExLog(iso, exerciseId) {
+  return ensureExerciseLog(state.logs, iso, exerciseId);
+}
+
 function renderSessionCard(session) {
   const title = document.getElementById("today-session-title");
   const rationale = document.getElementById("today-rationale");
@@ -431,26 +501,83 @@ function renderSessionCard(session) {
   }
 
   title.textContent = `${weekdayShort(session.day)} · ${session.label}`;
-  rationale.textContent = session.rationale;
+  const box = +state.settings.timeBoxMinutes || 0;
+  const timeNote = box >= 25 ? ` · Time-box ${box} min` : "";
+  rationale.textContent = (session.rationale || "") + timeNote;
   const { caps } = getCoach();
   const whyOpen = caps.showWhyDefaultOpen;
+  const showWarm = state.settings.showWarmups !== false;
 
   list.innerHTML = session.exercises
-    .map(
-      (ex, i) => `
-    <li class="ex-item ${ex.done ? "done" : ""}" data-i="${i}">
+    .map((ex, i) => {
+      const last = lastWorkingSets(state.logs, ex.exerciseId, session.day);
+      const sug = suggestNext(last, ex.reps);
+      const exLog = state.logs?.[session.day]?.exercises?.[ex.exerciseId];
+      const sets = exLog?.sets?.length
+        ? exLog.sets
+        : seedSetsFromSuggestion(sug, ex.sets).map((s) => ({ ...s, weight: s.weight === 0 ? "" : s.weight }));
+      // Don't auto-persist empty seeds until user types
+      const cues = FORM_CUES[ex.exerciseId] || [];
+      const skip = exLog?.skipReason || "";
+      const workW = sets.find((s) => +s.weight > 0)?.weight || last?.sets?.[0]?.weight || 0;
+      const warm = showWarm ? warmupLadder(workW, ex.role) : [];
+      const restSec = restDefaultForRole(ex.role);
+
+      const setRows = sets
+        .map(
+          (s, si) => `
+        <div class="set-row" data-ex="${i}" data-set="${si}">
+          <span class="set-num">${si + 1}</span>
+          <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" placeholder="lb/kg" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
+          <span class="set-x">×</span>
+          <input type="number" class="set-r" inputmode="numeric" step="1" min="0" placeholder="reps" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
+          <input type="number" class="set-rpe" inputmode="decimal" step="0.5" min="1" max="10" placeholder="RPE" value="${s.rpe === "" || s.rpe == null ? "" : escapeHtml(String(s.rpe))}" aria-label="RPE set ${si + 1}" title="Optional RPE" />
+          <label class="set-hard" title="Hard working set"><input type="checkbox" class="set-hard-cb" ${s.hard !== false ? "checked" : ""} /> Hard</label>
+        </div>`
+        )
+        .join("");
+
+      return `
+    <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""}" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
       <button type="button" class="ex-check" data-toggle="${i}" aria-label="Mark done">${ex.done ? "✓" : ""}</button>
-      <div>
+      <div class="ex-main">
         <div class="ex-name">${escapeHtml(ex.name)}</div>
         <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${ex.role} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}</div>
+        <div class="prog-line">${sug.lines.map((l) => escapeHtml(l)).join("<br/>")}</div>
+        ${
+          warm.length
+            ? `<div class="warmup-line"><span class="dim">Warm-up:</span> ${warm.map(escapeHtml).join(" → ")}</div>`
+            : ""
+        }
+        <div class="set-log" data-ex-log="${i}">
+          <div class="set-head"><span></span><span>Load</span><span></span><span>Reps</span><span>RPE</span><span></span></div>
+          ${setRows}
+          <div class="set-tools">
+            <button type="button" class="ghost-btn tiny" data-add-set="${i}">+ Set</button>
+            <button type="button" class="ghost-btn tiny" data-rest="${restSec}" data-ex-rest="${i}">Rest ${restSec >= 60 ? restSec / 60 + "m" : restSec + "s"}</button>
+            <button type="button" class="ghost-btn tiny" data-save-log="${i}">Save log</button>
+          </div>
+        </div>
+        <div class="skip-row">
+          <label class="dim">Skip:</label>
+          <select data-skip="${i}" aria-label="Skip reason">
+            <option value="">—</option>
+            ${SKIP_REASONS.map((r) => `<option value="${r.id}" ${skip === r.id ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
+          </select>
+        </div>
+        ${
+          cues.length
+            ? `<div class="cues-line"><strong>Cues:</strong> ${cues.map(escapeHtml).join(" · ")}</div>`
+            : ""
+        }
         <button type="button" class="why-toggle" data-why="${i}" aria-expanded="${whyOpen ? "true" : "false"}">${whyOpen ? "Hide reason" : "Why this lift?"}</button>
         <div class="ex-why" id="why-${i}" ${whyOpen ? "" : "hidden"}>${escapeHtml(ex.why || "Selected to cover today’s muscle needs.")}</div>
       </div>
       <div class="ex-actions">
         ${caps.allowSwap ? `<button type="button" data-swap="${i}">Swap</button>` : ""}
       </div>
-    </li>`
-    )
+    </li>`;
+    })
     .join("");
 
   list.querySelectorAll("[data-toggle]").forEach((btn) => {
@@ -475,13 +602,71 @@ function renderSessionCard(session) {
       btn.textContent = open ? "Hide reason" : "Why this lift?";
     });
   });
+  list.querySelectorAll("[data-save-log]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      saveExerciseLogFromDom(session, +btn.dataset.saveLog);
+      toast("Set log saved");
+      renderSessionCard(session);
+    });
+  });
+  list.querySelectorAll("[data-add-set]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = +btn.dataset.addSet;
+      const ex = session.exercises[i];
+      const log = getExLog(session.day, ex.exerciseId);
+      // pull current DOM first
+      saveExerciseLogFromDom(session, i, { silent: true });
+      log.sets.push({ weight: "", reps: "", hard: true, rpe: "" });
+      persist();
+      renderSessionCard(session);
+    });
+  });
+  list.querySelectorAll("[data-rest]").forEach((btn) => {
+    btn.addEventListener("click", () => startRestTimer(+btn.dataset.rest || 90));
+  });
+  list.querySelectorAll("[data-skip]").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      const i = +sel.dataset.skip;
+      const ex = session.exercises[i];
+      const log = getExLog(session.day, ex.exerciseId);
+      log.skipReason = sel.value || null;
+      if (log.skipReason) {
+        session.exercises[i].done = true;
+      }
+      persist();
+      saveSessionProgress(session);
+      toast(log.skipReason ? "Marked skipped" : "Skip cleared");
+      renderSessionCard(session);
+    });
+  });
+  // Auto-save on blur of set inputs
+  list.querySelectorAll(".set-row input").forEach((inp) => {
+    inp.addEventListener("change", () => {
+      const row = inp.closest(".set-row");
+      if (!row) return;
+      saveExerciseLogFromDom(session, +row.dataset.ex, { silent: true });
+    });
+  });
+
+  const proteinHint = proteinHintHtml();
 
   actions.innerHTML = `
+    <div class="rest-presets" id="rest-presets">
+      ${REST_PRESETS.map((p) => `<button type="button" class="ghost-btn tiny" data-rest-preset="${p.sec}">Rest ${p.label}</button>`).join("")}
+      <button type="button" class="ghost-btn tiny" id="rest-stop" ${restTimer.endsAt ? "" : "hidden"}>Stop timer</button>
+    </div>
+    ${proteinHint}
     <button type="button" class="primary-btn" id="mark-complete">${session.completed ? "Mark incomplete" : "Mark session complete"}</button>
     <button type="button" class="ghost-btn" id="log-macro" title="Open MacroLedger with this session prefilled">Log burn in MacroLedger</button>
     <button type="button" class="ghost-btn" id="skip-day">Remove this train day</button>
   `;
+  document.getElementById("rest-presets")?.querySelectorAll("[data-rest-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => startRestTimer(+btn.dataset.restPreset));
+  });
+  document.getElementById("rest-stop")?.addEventListener("click", () => stopRestTimer());
   document.getElementById("mark-complete").onclick = () => {
+    // Save all visible logs first
+    session.exercises.forEach((_, i) => saveExerciseLogFromDom(session, i, { silent: true }));
     const finishing = !session.completed;
     session.completed = !session.completed;
     if (session.completed) session.exercises.forEach((e) => (e.done = true));
@@ -490,7 +675,6 @@ function renderSessionCard(session) {
     renderToday();
     renderCalendar();
     if (finishing && session.completed) {
-      // Offer MacroLedger handoff after a real finish
       setTimeout(() => {
         if (confirm("Log this session’s burn in MacroLedger?\n\nOpens MacroLedger and adds the workout for that day (protein tracking stays there).")) {
           openMacroLedgerHandoff(session, { auto: true });
@@ -509,6 +693,138 @@ function renderSessionCard(session) {
     rebuild();
     toast("Day removed · plan rebuilt");
   };
+}
+
+function saveExerciseLogFromDom(session, exIndex, { silent = false } = {}) {
+  const ex = session.exercises[exIndex];
+  if (!ex) return;
+  const root = document.querySelector(`.ex-item[data-i="${exIndex}"]`);
+  if (!root) return;
+  const rows = [...root.querySelectorAll(".set-row")];
+  const sets = rows.map((row) => {
+    const w = row.querySelector(".set-w")?.value;
+    const r = row.querySelector(".set-r")?.value;
+    const rpe = row.querySelector(".set-rpe")?.value;
+    const hard = row.querySelector(".set-hard-cb")?.checked !== false;
+    return {
+      weight: w === "" ? "" : +w,
+      reps: r === "" ? "" : +r,
+      rpe: rpe === "" ? "" : +rpe,
+      hard,
+    };
+  });
+  const log = getExLog(session.day, ex.exerciseId);
+  log.sets = sets;
+  // Mark done if any hard set has reps
+  if (sets.some((s) => s.hard !== false && +s.reps > 0)) {
+    ex.done = true;
+  }
+  persist();
+  saveSessionProgress(session);
+  if (!silent) toast("Saved");
+}
+
+function proteinHintHtml() {
+  const kg = +state.settings.bodyweightKg;
+  if (!kg || kg < 30) return "";
+  const lo = Math.round(kg * 1.6);
+  const hi = Math.round(kg * 2.2);
+  return `<p class="hint protein-hint">Protein target ~${lo}–${hi} g today (1.6–2.2 g/kg) · log food in MacroLedger</p>`;
+}
+
+// ---------- rest timer ----------
+function startRestTimer(sec) {
+  const s = Math.max(15, Math.min(600, +sec || 90));
+  restTimer.totalSec = s;
+  restTimer.endsAt = Date.now() + s * 1000;
+  if (restTimer.intervalId) clearInterval(restTimer.intervalId);
+  restTimer.intervalId = setInterval(() => {
+    renderRestTimerBar();
+    if (!restTimer.endsAt || Date.now() >= restTimer.endsAt) {
+      stopRestTimer(true);
+    }
+  }, 250);
+  renderRestTimerBar();
+  toast(`Rest ${s >= 60 ? Math.round(s / 60) + " min" : s + "s"}`);
+}
+
+function stopRestTimer(finished = false) {
+  if (restTimer.intervalId) clearInterval(restTimer.intervalId);
+  restTimer.intervalId = null;
+  restTimer.endsAt = null;
+  renderRestTimerBar();
+  if (finished) {
+    toast("Rest done — next set");
+    try {
+      if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+    } catch {
+      /* ok */
+    }
+  }
+  // refresh stop button visibility on today
+  const stop = document.getElementById("rest-stop");
+  if (stop) stop.hidden = true;
+}
+
+function renderRestTimerBar() {
+  const bar = document.getElementById("rest-timer-bar");
+  if (!bar) return;
+  if (!restTimer.endsAt) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
+  }
+  const left = Math.max(0, Math.ceil((restTimer.endsAt - Date.now()) / 1000));
+  const m = Math.floor(left / 60);
+  const s = left % 60;
+  const pct = Math.min(100, Math.round(((restTimer.totalSec - left) / restTimer.totalSec) * 100));
+  bar.hidden = false;
+  bar.innerHTML = `
+    <div class="rest-timer-inner">
+      <strong>Rest</strong>
+      <span class="rest-clock">${m}:${String(s).padStart(2, "0")}</span>
+      <div class="rest-bar"><i style="width:${pct}%"></i></div>
+      <button type="button" class="ghost-btn tiny" id="rest-bar-stop">Skip</button>
+    </div>`;
+  document.getElementById("rest-bar-stop")?.addEventListener("click", () => stopRestTimer(false));
+}
+
+// ---------- stack check-in ----------
+function renderStackCheckinBanner() {
+  const el = document.getElementById("stack-checkin");
+  if (!el) return;
+  const stack = state.myStack || [];
+  if (!stack.length) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  const today = todayISO();
+  const day = state.stackCheckins[today] || {};
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="card stack-card">
+      <h2>Stack today</h2>
+      <p class="hint">Local check-in only — not medical advice.</p>
+      <div class="stack-check-list">
+        ${stack
+          .map((id) => {
+            const name = SUPPLEMENTS.find((s) => s.id === id)?.name || id;
+            const on = !!day[id];
+            return `<label class="stack-check"><input type="checkbox" data-stack-day="${escapeHtml(id)}" ${on ? "checked" : ""}/> ${escapeHtml(name)}</label>`;
+          })
+          .join("")}
+      </div>
+    </div>`;
+  el.querySelectorAll("[data-stack-day]").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      if (!state.stackCheckins[today]) state.stackCheckins[today] = {};
+      if (cb.checked) state.stackCheckins[today][cb.dataset.stackDay] = true;
+      else delete state.stackCheckins[today][cb.dataset.stackDay];
+      persist();
+      toast(cb.checked ? "Checked in" : "Cleared");
+    });
+  });
 }
 
 /**
@@ -545,6 +861,8 @@ function saveSessionProgress(session) {
     exerciseDone: session.exercises.map((e) => !!e.done),
     byExerciseId,
     doseId: session.doseId || doseForDay(session.day).id,
+    label: session.label,
+    minutes: session.estimatedMinutes,
     savedAt: new Date().toISOString(),
   };
   persist();
@@ -677,7 +995,7 @@ function labelForDay(iso) {
   return `${iso} → Cleared`;
 }
 
-// ---------- coverage ----------
+// ---------- coverage + history + PRs ----------
 function renderCoverage() {
   const meta = document.getElementById("coverage-meta");
   const bars = document.getElementById("coverage-bars");
@@ -695,31 +1013,91 @@ function renderCoverage() {
   if (!plan) {
     meta.textContent = "No plan yet — mark train days on Plan.";
     bars.innerHTML = "";
+    renderHistoryAndPrs();
     return;
   }
   const under = plan.meta.underCoveredPrimaries || [];
   meta.textContent = under.length
-    ? `⚠ Under MED on: ${under.join(", ")} · ${plan.meta.trainingDays} train days · raise days or keep sessions full-body`
-    : `✓ Primaries at MED track · ${plan.meta.trainingDays} train days · multiplier ×${plan.meta.medMultiplier}`;
+    ? `⚠ Under MED (planned) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
+    : `✓ Primaries on planned MED track · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
+
+  const from = plan.meta?.start;
+  const to = plan.meta?.end;
+  const logged = loggedCoverage(state.logs, from, to);
 
   const rows = MUSCLES.map((m) => {
-    const got = plan.coverage[m.id] || 0;
+    const planned = plan.coverage[m.id] || 0;
+    const got = logged[m.id] || 0;
     const tgt = plan.targets[m.id] || 1;
-    const pct = Math.min(100, Math.round((got / tgt) * 100));
-    const low = pct < 70;
-    return { m, got, tgt, pct, low };
+    const pctPlan = Math.min(100, Math.round((planned / tgt) * 100));
+    const pctLog = Math.min(100, Math.round((got / tgt) * 100));
+    const low = pctLog < 70 && pctPlan < 70;
+    return { m, planned, got, tgt, pctPlan, pctLog, low };
   }).sort((a, b) => b.tgt - a.tgt);
 
   bars.innerHTML = rows
     .map(
       (r) => `
-    <div class="cov-row">
+    <div class="cov-row dual">
       <span>${escapeHtml(r.m.name)}</span>
-      <div class="cov-bar ${r.low ? "low" : ""}"><i style="width:${r.pct}%"></i></div>
-      <span class="dim">${r.pct}%</span>
+      <div class="cov-dual">
+        <div class="cov-bar" title="Planned ${r.planned.toFixed(1)} / ${r.tgt.toFixed(1)}"><i style="width:${r.pctPlan}%"></i></div>
+        <div class="cov-bar logged ${r.pctLog < 70 ? "low" : ""}" title="Logged hard sets ${r.got.toFixed(1)} / ${r.tgt.toFixed(1)}"><i style="width:${r.pctLog}%"></i></div>
+      </div>
+      <span class="dim cov-nums">${Math.round(r.got)}/${Math.round(r.tgt)}<br/><span class="tiny">log · plan ${Math.round(r.planned)}</span></span>
     </div>`
     )
     .join("");
+
+  renderHistoryAndPrs();
+}
+
+function renderHistoryAndPrs() {
+  const histEl = document.getElementById("history-list");
+  const prEl = document.getElementById("pr-board");
+  if (histEl) {
+    const rows = buildHistory(state.completedSessions, state.logs, plan?.sessions || []);
+    if (!rows.length) {
+      histEl.innerHTML = `<p class="hint">No sessions logged yet. Finish a session and save set loads on Today.</p>`;
+    } else {
+      histEl.innerHTML = rows
+        .slice(0, 24)
+        .map((r) => {
+          const dose = DOSE_PROFILES[r.doseId]?.short || r.doseId;
+          return `
+        <button type="button" class="session-row" data-hist="${r.day}">
+          <div>
+            <strong>${weekdayShort(r.day)} ${r.day} · ${escapeHtml(r.label)}</strong>
+            <span>${r.completed ? "Done" : "Partial"} · ${dose} · ${r.hardSets} hard sets${r.lifts.length ? " · " + escapeHtml(r.lifts.slice(0, 2).join(" · ")) : ""}</span>
+          </div>
+          <span class="chip ${r.completed ? "ok" : "warn"}">Open</span>
+        </button>`;
+        })
+        .join("");
+      histEl.querySelectorAll("[data-hist]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeSessionIso = btn.dataset.hist;
+          document.querySelector('.nav-btn[data-view="today"]')?.click();
+          renderToday();
+        });
+      });
+    }
+  }
+  if (prEl) {
+    const board = computePrBoard(state.logs);
+    prEl.innerHTML = board
+      .map((p) => {
+        if (!p.best) {
+          return `<div class="pr-row"><span class="pr-label">${escapeHtml(p.label)}</span><span class="dim">—</span></div>`;
+        }
+        const b = p.best;
+        return `<div class="pr-row">
+          <span class="pr-label">${escapeHtml(p.label)}</span>
+          <span><strong>${formatLoad(b.weight)}×${b.reps}</strong> <span class="dim">(~${formatLoad(b.e1rm)} e1RM)</span><br/><span class="tiny">${escapeHtml(b.name)} · ${b.day}</span></span>
+        </div>`;
+      })
+      .join("");
+  }
 }
 
 // ---------- supps (training evidence browser) ----------
@@ -882,7 +1260,7 @@ function initSuppsUi() {
 // ---------- settings ----------
 function renderSettingsForm() {
   const s = state.settings;
-  const { n, stage, caps } = getCoach();
+  const { n, q, stage, caps } = getCoach();
   const nameEl = document.getElementById("set-name");
   if (nameEl) nameEl.value = s.displayName || "";
   document.getElementById("set-minutes").value = s.sessionMinutes;
@@ -893,13 +1271,27 @@ function renderSettingsForm() {
   if (coachSel) coachSel.value = s.coachMode || "auto";
   const doseSel = document.getElementById("set-default-dose");
   if (doseSel) doseSel.value = s.defaultDose || "med";
+  const timeBox = document.getElementById("set-timebox");
+  if (timeBox) timeBox.value = String(s.timeBoxMinutes || 0);
+  const bw = document.getElementById("set-bw");
+  if (bw) bw.value = s.bodyweightKg || "";
+  const warm = document.getElementById("set-warmups");
+  if (warm) warm.checked = s.showWarmups !== false;
+  const qg = document.getElementById("set-quality-gates");
+  if (qg) qg.checked = s.coachQualityGates !== false;
   const sessionsLabel = document.getElementById("sessions-done-label");
   if (sessionsLabel) {
-    sessionsLabel.textContent = `${n} session${n === 1 ? "" : "s"} completed · current stage: ${stage.label}`;
+    sessionsLabel.textContent = `${n} completed · ${q} quality (logged) · stage: ${stage.label}`;
   }
   const stageDetail = document.getElementById("coach-stage-detail");
   if (stageDetail) {
-    stageDetail.innerHTML = `${escapeHtml(stage.blurb)} Auto path: <strong>Guided</strong> (0–5) → <strong>Building</strong> (6–14) → <strong>Custom</strong> (15+).`;
+    stageDetail.innerHTML = `${escapeHtml(stage.blurb)} Auto path: <strong>Guided</strong> (0–5) → <strong>Building</strong> (6–14) → <strong>Custom</strong> (15+). Quality gates use sessions with logged hard sets when available.`;
+  }
+  const deloadLbl = document.getElementById("deload-status");
+  if (deloadLbl) {
+    deloadLbl.textContent = state.deloadUntil
+      ? `Deload active through ${state.deloadUntil}`
+      : "No deload scheduled";
   }
 
   const adv = document.getElementById("advanced-settings");
@@ -930,7 +1322,6 @@ function renderSettingsForm() {
 }
 
 function saveSettingsFromForm() {
-  const { caps } = getCoach();
   const nameEl = document.getElementById("set-name");
   if (nameEl) state.settings.displayName = nameEl.value.trim();
   state.settings.sessionMinutes = +document.getElementById("set-minutes").value || 55;
@@ -938,12 +1329,20 @@ function saveSettingsFromForm() {
   if (coachSel) state.settings.coachMode = coachSel.value;
   const doseSel = document.getElementById("set-default-dose");
   if (doseSel) state.settings.defaultDose = doseSel.value || "med";
+  const timeBox = document.getElementById("set-timebox");
+  if (timeBox) state.settings.timeBoxMinutes = +timeBox.value || 0;
+  const bw = document.getElementById("set-bw");
+  if (bw) {
+    const v = +bw.value;
+    state.settings.bodyweightKg = v >= 30 ? v : null;
+  }
+  const warm = document.getElementById("set-warmups");
+  if (warm) state.settings.showWarmups = warm.checked;
+  const qg = document.getElementById("set-quality-gates");
+  if (qg) state.settings.coachQualityGates = qg.checked;
 
   // Recompute caps after mode change
-  const mode = state.settings.coachMode || "auto";
-  const n = countCompletedSessions(state.completedSessions);
-  const stage = resolveCoachStage(n, { mode });
-  const newCaps = stageCapabilities(stage.id);
+  const { caps: newCaps } = getCoach();
 
   if (newCaps.allowSplitChange) {
     state.settings.splitPreference = document.getElementById("set-split").value;
@@ -960,6 +1359,24 @@ function saveSettingsFromForm() {
   rebuild();
   updateGreeting();
   toast("Settings saved · plan rebuilt");
+}
+
+function startDeloadWeek() {
+  const d = parseISO(todayISO());
+  d.setDate(d.getDate() + 6);
+  state.deloadUntil = toISO(d);
+  persist();
+  rebuild();
+  toast(`Deload through ${state.deloadUntil} — sessions Low`);
+  renderSettingsForm();
+}
+
+function clearDeload() {
+  state.deloadUntil = null;
+  persist();
+  rebuild();
+  toast("Deload cleared");
+  renderSettingsForm();
 }
 
 // ---------- swap modal ----------
@@ -979,7 +1396,7 @@ function openSwap(sessionIso, exIndex) {
         (s) => `
       <button type="button" class="swap-option" data-id="${s.id}">
         <strong>${escapeHtml(s.name)}</strong><br/>
-        <span class="dim">${s.sets} × ${escapeHtml(s.reps)} · ${escapeHtml(s.primary.map(muscleName).join(", "))}</span>
+        <span class="dim">${s.sets} × ${escapeHtml(s.reps)} · ${escapeHtml(s.jobLine || s.primary.map(muscleName).join(", "))}</span>
       </button>`
       )
       .join("");
@@ -1095,7 +1512,7 @@ const ONBOARD_STEPS = [
         <button type="button" class="primary-btn" id="ob-empty">Start empty (recommended)</button>
         <button type="button" class="ghost-btn" id="ob-sample">Load sample schedule</button>
       </div>
-      <p class="dim" style="margin-top:0.75rem">Path: Guided (0–5 sessions) → Building (6–14) → Custom (15+). Science notes live under each lift and on Supps.</p>
+      <p class="dim" style="margin-top:0.75rem">Path: Guided (0–5) → Building (6–14) → Custom (15+). Log weights on Today so unlocks track real work. Science notes under lifts + Supps.</p>
     `,
   },
 ];
@@ -1188,6 +1605,11 @@ function initEvents() {
     applyAugustSeed(true);
   };
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
+  document.getElementById("btn-deload")?.addEventListener("click", () => {
+    if (!confirm("Start a 7-day deload? Train days will use Low (Rough) dose until it ends.")) return;
+    startDeloadWeek();
+  });
+  document.getElementById("btn-deload-clear")?.addEventListener("click", clearDeload);
   document.getElementById("set-theme")?.addEventListener("change", (e) => {
     applyTheme(e.target.value);
     toast(
