@@ -20,7 +20,15 @@ import {
   weekdayShort,
   monthLabel,
 } from "./planner.js";
-import { loadState, saveState, exportJson, importJson } from "./store.js";
+import {
+  loadState,
+  saveState,
+  exportJson,
+  importJson,
+  needsBackupReminder,
+  markBackupDone,
+  formatBackupAge,
+} from "./store.js";
 import {
   countCompletedSessions,
   resolveCoachStage,
@@ -56,9 +64,12 @@ import {
   countQualitySessions,
   roughDaysRecent,
   seedSetsFromSuggestion,
+  plateBreakdown,
+  buildSessionSummary,
+  buildCoverInsights,
 } from "./logging.js";
 
-const APP_VERSION = "15";
+const APP_VERSION = "16";
 const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -78,6 +89,10 @@ let swapCtx = null; // { sessionIso, exIndex }
 let onboardStep = 0;
 /** Rest timer: endsAt ms, total sec, interval id */
 let restTimer = { endsAt: null, totalSec: 90, intervalId: null };
+/** @type {WakeLockSentinel | null} */
+let wakeLockSentinel = null;
+/** Dedupe backup toast per session */
+let backupNagShown = false;
 
 // ---------- bootstrap ----------
 function ensureSeeded() {
@@ -97,11 +112,15 @@ function ensureSeeded() {
   if (!state.stackCheckins || typeof state.stackCheckins !== "object") state.stackCheckins = {};
   if (state.deloadUntil === undefined) state.deloadUntil = null;
   if (state.onboardingComplete == null) state.onboardingComplete = false;
+  if (state.lastBackupAt === undefined) state.lastBackupAt = null;
+  if (state.backupRemindDays == null) state.backupRemindDays = 7;
   if (!state.settings.defaultDose) state.settings.defaultDose = "med";
   if (state.settings.timeBoxMinutes == null) state.settings.timeBoxMinutes = 0;
   if (state.settings.coachQualityGates == null) state.settings.coachQualityGates = true;
   if (state.settings.showWarmups == null) state.settings.showWarmups = true;
   if (state.settings.restDefaultSec == null) state.settings.restDefaultSec = 90;
+  if (state.settings.barWeight == null) state.settings.barWeight = 45;
+  if (state.settings.unitLabel == null) state.settings.unitLabel = "lb";
 
   // Existing users who already have a plan: skip forced onboarding
   if (state.trainingDays.length > 0) {
@@ -523,19 +542,37 @@ function renderSessionCard(session) {
       const warm = showWarm ? warmupLadder(workW, ex.role) : [];
       const restSec = restDefaultForRole(ex.role);
 
+      const unit = state.settings.unitLabel || "lb";
       const setRows = sets
         .map(
           (s, si) => `
         <div class="set-row" data-ex="${i}" data-set="${si}">
           <span class="set-num">${si + 1}</span>
-          <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" placeholder="lb/kg" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
+          <div class="stepper" data-field="w">
+            <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight">−</button>
+            <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
+            <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight">+</button>
+          </div>
           <span class="set-x">×</span>
-          <input type="number" class="set-r" inputmode="numeric" step="1" min="0" placeholder="reps" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
+          <div class="stepper" data-field="r">
+            <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps">−</button>
+            <input type="number" class="set-r" inputmode="numeric" step="1" min="0" placeholder="reps" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
+            <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps">+</button>
+          </div>
           <input type="number" class="set-rpe" inputmode="decimal" step="0.5" min="1" max="10" placeholder="RPE" value="${s.rpe === "" || s.rpe == null ? "" : escapeHtml(String(s.rpe))}" aria-label="RPE set ${si + 1}" title="Optional RPE" />
           <label class="set-hard" title="Hard working set"><input type="checkbox" class="set-hard-cb" ${s.hard !== false ? "checked" : ""} /> Hard</label>
         </div>`
         )
         .join("");
+
+      const plateHint =
+        +workW > 40
+          ? (() => {
+              const pb = plateBreakdown(workW, +state.settings.barWeight || 45);
+              if (!pb.plates.length) return "";
+              return `<div class="plate-line dim">Plates/side (~${pb.bar} bar): ${pb.plates.join(" + ") || "—"} → ${formatLoad(pb.total)}</div>`;
+            })()
+          : "";
 
       return `
     <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""}" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
@@ -549,10 +586,13 @@ function renderSessionCard(session) {
             ? `<div class="warmup-line"><span class="dim">Warm-up:</span> ${warm.map(escapeHtml).join(" → ")}</div>`
             : ""
         }
+        ${plateHint}
         <div class="set-log" data-ex-log="${i}">
           <div class="set-head"><span></span><span>Load</span><span></span><span>Reps</span><span>RPE</span><span></span></div>
           ${setRows}
           <div class="set-tools">
+            <button type="button" class="primary-btn tiny" data-done-set="${i}" title="Save set and start rest">Done → rest</button>
+            <button type="button" class="ghost-btn tiny" data-same-last="${i}">Same as last</button>
             <button type="button" class="ghost-btn tiny" data-add-set="${i}">+ Set</button>
             <button type="button" class="ghost-btn tiny" data-rest="${restSec}" data-ex-rest="${i}">Rest ${restSec >= 60 ? restSec / 60 + "m" : restSec + "s"}</button>
             <button type="button" class="ghost-btn tiny" data-save-log="${i}">Save log</button>
@@ -616,9 +656,88 @@ function renderSessionCard(session) {
       const log = getExLog(session.day, ex.exerciseId);
       // pull current DOM first
       saveExerciseLogFromDom(session, i, { silent: true });
-      log.sets.push({ weight: "", reps: "", hard: true, rpe: "" });
+      const prev = log.sets[log.sets.length - 1];
+      log.sets.push({
+        weight: prev?.weight ?? "",
+        reps: prev?.reps ?? "",
+        hard: true,
+        rpe: "",
+      });
       persist();
       renderSessionCard(session);
+    });
+  });
+  list.querySelectorAll("[data-same-last]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = +btn.dataset.sameLast;
+      const root = document.querySelector(`.ex-item[data-i="${i}"]`);
+      if (!root) return;
+      const rows = [...root.querySelectorAll(".set-row")];
+      if (rows.length < 2) {
+        // copy from suggestion / last session into first empty
+        saveExerciseLogFromDom(session, i, { silent: true });
+        const ex = session.exercises[i];
+        const log = getExLog(session.day, ex.exerciseId);
+        const last = lastWorkingSets(state.logs, ex.exerciseId, session.day);
+        const src = last?.sets?.[0];
+        if (!src) {
+          toast("No previous set to copy");
+          return;
+        }
+        const target = log.sets.find((s) => !s.reps && !s.weight) || log.sets[log.sets.length - 1];
+        if (target) {
+          target.weight = src.weight;
+          target.reps = src.reps;
+          target.hard = true;
+        }
+        persist();
+        renderSessionCard(session);
+        toast("Copied last session");
+        return;
+      }
+      const prev = rows[rows.length - 2];
+      const cur = rows[rows.length - 1];
+      const w = prev.querySelector(".set-w")?.value ?? "";
+      const r = prev.querySelector(".set-r")?.value ?? "";
+      const rpe = prev.querySelector(".set-rpe")?.value ?? "";
+      if (cur.querySelector(".set-w")) cur.querySelector(".set-w").value = w;
+      if (cur.querySelector(".set-r")) cur.querySelector(".set-r").value = r;
+      if (cur.querySelector(".set-rpe")) cur.querySelector(".set-rpe").value = rpe;
+      saveExerciseLogFromDom(session, i, { silent: true });
+      toast("Same as last set");
+    });
+  });
+  list.querySelectorAll("[data-done-set]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = +btn.dataset.doneSet;
+      const ex = session.exercises[i];
+      saveExerciseLogFromDom(session, i, { silent: true });
+      const restSec = restDefaultForRole(ex.role);
+      startRestTimer(restSec);
+      toast("Set saved · rest on");
+    });
+  });
+  list.querySelectorAll("[data-step-w]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".set-row");
+      const inp = row?.querySelector(".set-w");
+      if (!inp) return;
+      const delta = +btn.dataset.stepW || 2.5;
+      const cur = inp.value === "" ? 0 : +inp.value;
+      const next = Math.max(0, Math.round((cur + delta) * 2) / 2);
+      inp.value = String(next);
+      saveExerciseLogFromDom(session, +row.dataset.ex, { silent: true });
+    });
+  });
+  list.querySelectorAll("[data-step-r]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".set-row");
+      const inp = row?.querySelector(".set-r");
+      if (!inp) return;
+      const delta = +btn.dataset.stepR || 1;
+      const cur = inp.value === "" ? 0 : +inp.value;
+      inp.value = String(Math.max(0, cur + delta));
+      saveExerciseLogFromDom(session, +row.dataset.ex, { silent: true });
     });
   });
   list.querySelectorAll("[data-rest]").forEach((btn) => {
@@ -675,11 +794,7 @@ function renderSessionCard(session) {
     renderToday();
     renderCalendar();
     if (finishing && session.completed) {
-      setTimeout(() => {
-        if (confirm("Log this session’s burn in MacroLedger?\n\nOpens MacroLedger and adds the workout for that day (protein tracking stays there).")) {
-          openMacroLedgerHandoff(session, { auto: true });
-        }
-      }, 280);
+      setTimeout(() => showSessionSummary(session), 200);
     }
   };
   document.getElementById("log-macro").onclick = () => {
@@ -732,6 +847,28 @@ function proteinHintHtml() {
   return `<p class="hint protein-hint">Protein target ~${lo}–${hi} g today (1.6–2.2 g/kg) · log food in MacroLedger</p>`;
 }
 
+// ---------- wake lock (keep screen on during rest) ----------
+async function requestWakeLock() {
+  try {
+    if (!("wakeLock" in navigator)) return;
+    wakeLockSentinel = await navigator.wakeLock.request("screen");
+    wakeLockSentinel.addEventListener("release", () => {
+      wakeLockSentinel = null;
+    });
+  } catch {
+    /* permission / unsupported */
+  }
+}
+
+async function releaseWakeLock() {
+  try {
+    await wakeLockSentinel?.release();
+  } catch {
+    /* ok */
+  }
+  wakeLockSentinel = null;
+}
+
 // ---------- rest timer ----------
 function startRestTimer(sec) {
   const s = Math.max(15, Math.min(600, +sec || 90));
@@ -744,6 +881,7 @@ function startRestTimer(sec) {
       stopRestTimer(true);
     }
   }, 250);
+  requestWakeLock();
   renderRestTimerBar();
   toast(`Rest ${s >= 60 ? Math.round(s / 60) + " min" : s + "s"}`);
 }
@@ -752,11 +890,12 @@ function stopRestTimer(finished = false) {
   if (restTimer.intervalId) clearInterval(restTimer.intervalId);
   restTimer.intervalId = null;
   restTimer.endsAt = null;
+  releaseWakeLock();
   renderRestTimerBar();
   if (finished) {
     toast("Rest done — next set");
     try {
-      if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+      if (navigator.vibrate) navigator.vibrate([120, 60, 120, 60, 200]);
     } catch {
       /* ok */
     }
@@ -764,6 +903,64 @@ function stopRestTimer(finished = false) {
   // refresh stop button visibility on today
   const stop = document.getElementById("rest-stop");
   if (stop) stop.hidden = true;
+}
+
+/** End-of-session summary modal + optional MacroLedger handoff */
+function showSessionSummary(session) {
+  const dayLog = state.logs?.[session.day];
+  const summary = buildSessionSummary(session, dayLog);
+  const modal = document.getElementById("session-summary-modal");
+  const body = document.getElementById("session-summary-body");
+  if (!modal || !body) {
+    // Fallback if HTML not present
+    if (
+      confirm(
+        `Session done · ${summary.loggedHard}/${summary.plannedSets} hard sets (${summary.pctOfPlan}% of plan).\n\nLog burn in MacroLedger?`
+      )
+    ) {
+      openMacroLedgerHandoff(session, { auto: true, summary });
+    }
+    return;
+  }
+  const liftLines = summary.lifts
+    .map((l) =>
+      l.skipped
+        ? `<li class="dim">${escapeHtml(l.name)} — skipped</li>`
+        : `<li><strong>${escapeHtml(l.name)}</strong> ${escapeHtml(l.top)} · ${l.sets} hard</li>`
+    )
+    .join("");
+  body.innerHTML = `
+    <p class="hint">${escapeHtml(summary.label)} · ${escapeHtml(session.day)}</p>
+    <div class="summary-stats">
+      <div><strong>${summary.loggedHard}</strong><span>hard sets</span></div>
+      <div><strong>${summary.plannedSets}</strong><span>planned</span></div>
+      <div><strong>${summary.pctOfPlan}%</strong><span>of plan</span></div>
+      <div><strong>~${summary.minutes || "—"}</strong><span>min</span></div>
+    </div>
+    <ul class="summary-lifts">${liftLines || "<li class='dim'>No sets logged</li>"}</ul>
+    <p class="dim">Quiet close — export a backup from Settings when you can.</p>
+  `;
+  modal.hidden = false;
+  const close = () => {
+    modal.hidden = true;
+  };
+  document.getElementById("session-summary-close")?.addEventListener("click", close, { once: true });
+  document.getElementById("session-summary-done")?.addEventListener("click", close, { once: true });
+  document.getElementById("session-summary-macro")?.addEventListener(
+    "click",
+    () => {
+      close();
+      openMacroLedgerHandoff(session, { auto: true, summary });
+    },
+    { once: true }
+  );
+  modal.addEventListener(
+    "click",
+    (e) => {
+      if (e.target.id === "session-summary-modal") close();
+    },
+    { once: true }
+  );
 }
 
 function renderRestTimerBar() {
@@ -828,20 +1025,29 @@ function renderStackCheckinBanner() {
 }
 
 /**
- * Deep-link into MacroLedger with session minutes + name.
- * MacroLedger reads ?iron=1&date=&min=&name=&auto=1 and logs exercise.
+ * Deep-link into MacroLedger with session minutes + name + volume tags.
+ * MacroLedger reads ?iron=1&date=&min=&name=&auto=1 (extra params are forward-compatible).
  */
-function openMacroLedgerHandoff(session, { auto = true } = {}) {
+function openMacroLedgerHandoff(session, { auto = true, summary = null } = {}) {
   if (!session) return;
-  const minutes = Math.max(1, Math.round(session.estimatedMinutes || 45));
+  const dayLog = state.logs?.[session.day];
+  const sum = summary || buildSessionSummary(session, dayLog);
+  const minutes = Math.max(1, Math.round(sum.minutes || session.estimatedMinutes || 45));
   const name = `Iron Ledger · ${session.label || "Strength"}`;
   const url = new URL(MACROLEDGER_URL);
   url.searchParams.set("iron", "1");
   url.searchParams.set("date", session.day);
   url.searchParams.set("min", String(minutes));
   url.searchParams.set("name", name);
+  url.searchParams.set("sets", String(sum.loggedHard || 0));
+  url.searchParams.set("dose", sum.doseId || session.doseId || "med");
+  const bw = +state.settings.bodyweightKg;
+  if (bw >= 30) url.searchParams.set("bw", String(bw));
+  const muscles = [
+    ...new Set((session.exercises || []).flatMap((e) => e.primary || [])),
+  ].slice(0, 8);
+  if (muscles.length) url.searchParams.set("muscles", muscles.join(","));
   if (auto) url.searchParams.set("auto", "1");
-  // Remember last handoff so we don’t spam if user returns
   try {
     sessionStorage.setItem("il_last_macro_handoff", `${session.day}:${minutes}`);
   } catch {
@@ -1010,6 +1216,8 @@ function renderCoverage() {
     ).join("");
   }
 
+  renderCoverInsights();
+
   if (!plan) {
     meta.textContent = "No plan yet — mark train days on Plan.";
     bars.innerHTML = "";
@@ -1050,6 +1258,52 @@ function renderCoverage() {
     .join("");
 
   renderHistoryAndPrs();
+}
+
+function renderCoverInsights() {
+  const el = document.getElementById("cover-insights");
+  if (!el) return;
+  const insights = buildCoverInsights({
+    logs: state.logs,
+    completedSessions: state.completedSessions,
+    dayDose: state.dayDose,
+    plan,
+    today: todayISO(),
+    lookbackDays: 14,
+  });
+  if (!insights.items.length) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="card insights-card">
+      <h2>Insights</h2>
+      <p class="hint">Quiet read of your last two weeks — educational, not medical.</p>
+      <ul class="insight-list">
+        ${insights.items
+          .map(
+            (it) => `
+          <li class="insight-item tone-${escapeHtml(it.tone || "dim")}">
+            <strong>${escapeHtml(it.title)}</strong>
+            <p>${escapeHtml(it.body)}</p>
+            ${
+              it.action === "deload"
+                ? `<button type="button" class="ghost-btn tiny" data-insight-deload>Start 7-day deload</button>`
+                : ""
+            }
+          </li>`
+          )
+          .join("")}
+      </ul>
+    </div>`;
+  el.querySelector("[data-insight-deload]")?.addEventListener("click", () => {
+    if (!confirm("Start a 7-day deload? Train days will use Low (Rough) dose until it ends.")) return;
+    startDeloadWeek();
+    renderCoverage();
+    toast("Deload started");
+  });
 }
 
 function renderHistoryAndPrs() {
@@ -1309,6 +1563,18 @@ function renderSettingsForm() {
   }
   const live = document.getElementById("live-url-label");
   if (live) live.textContent = `Live: ${LIVE_URL}`;
+
+  const backupAge = document.getElementById("backup-age");
+  if (backupAge) {
+    const age = formatBackupAge(state.lastBackupAt);
+    const nag = needsBackupReminder(state);
+    backupAge.textContent = nag ? `${age} · export recommended` : age;
+    backupAge.classList.toggle("backup-warn", nag);
+  }
+  const verNote = document.getElementById("data-version-note");
+  if (verNote) {
+    verNote.textContent = `v${APP_VERSION} · Open · set logs + insights + backup reminders`;
+  }
 
   const box = document.getElementById("exclude-list");
   const excluded = new Set(s.excludedExercises || []);
@@ -1620,15 +1886,8 @@ function initEvents() {
           : "System theme"
     );
   });
-  document.getElementById("export-btn").onclick = () => {
-    const blob = new Blob([exportJson(state)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `iron-ledger-backup-${todayISO()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast("Backup exported");
-  };
+  document.getElementById("export-btn").onclick = () => exportBackupFile();
+  document.getElementById("share-backup-btn")?.addEventListener("click", () => shareBackup());
   document.getElementById("import-btn").onclick = () => document.getElementById("import-file").click();
   document.getElementById("import-file").onchange = async (e) => {
     const file = e.target.files?.[0];
@@ -1639,6 +1898,7 @@ function initEvents() {
       ensureSeeded();
       rebuild();
       updateGreeting();
+      renderSettingsForm();
       toast("Backup imported");
     } catch {
       toast("Import failed");
@@ -1722,6 +1982,60 @@ async function copyText(text, okMsg) {
     }
     return false;
   }
+}
+
+function backupBlob() {
+  return new Blob([exportJson(state)], { type: "application/json" });
+}
+
+function backupFilename() {
+  return `iron-ledger-backup-${todayISO()}.json`;
+}
+
+function noteBackupSuccess(msg) {
+  markBackupDone(state);
+  renderSettingsForm();
+  toast(msg || "Backup saved");
+}
+
+function exportBackupFile() {
+  const blob = backupBlob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = backupFilename();
+  a.click();
+  URL.revokeObjectURL(a.href);
+  noteBackupSuccess("Backup exported");
+}
+
+async function shareBackup() {
+  const blob = backupBlob();
+  const name = backupFilename();
+  const file = new File([blob], name, { type: "application/json" });
+  try {
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Iron Ledger backup",
+        text: "Local training data backup — keep private.",
+      });
+      noteBackupSuccess("Backup shared");
+      return;
+    }
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+  }
+  // Fallback: download
+  exportBackupFile();
+}
+
+function maybeNagBackup() {
+  if (backupNagShown) return;
+  if (!needsBackupReminder(state)) return;
+  backupNagShown = true;
+  setTimeout(() => {
+    toast("Reminder: export a backup (Settings → Data)");
+  }, 1800);
 }
 
 function renderInviteShareList() {
@@ -1914,6 +2228,13 @@ function startAppShell() {
     persist();
   }
   showOnboarding(false);
+  maybeNagBackup();
+  // Re-request wake lock if rest timer still running after tab return
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && restTimer.endsAt) {
+      requestWakeLock();
+    }
+  });
 }
 
 // ---------- start ----------

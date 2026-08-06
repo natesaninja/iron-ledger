@@ -76,7 +76,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v15</span>
+          <span class="app-version" id="app-version">v16</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div id="stack-checkin" hidden></div>
@@ -132,6 +132,7 @@
 
       <!-- COVERAGE -->
       <section id="view-coverage" class="view">
+        <div id="cover-insights" hidden></div>
         <div class="card">
           <h2>Coverage vs MED</h2>
           <p class="hint" id="coverage-meta"></p>
@@ -367,22 +368,42 @@
         </div>
         <div class="card">
           <h2>Data</h2>
+          <p class="hint" id="backup-age">Never backed up</p>
+          <p class="hint">
+            Data stays on this device. Export or share a backup before phone swaps, OS updates, or travel.
+            Import on the new device from Settings.
+          </p>
           <div class="btn-row">
             <button type="button" class="primary-btn" id="save-settings">Save & rebuild</button>
             <button type="button" class="ghost-btn" id="export-btn">Export backup</button>
+            <button type="button" class="ghost-btn" id="share-backup-btn">Share backup…</button>
             <button type="button" class="ghost-btn" id="import-btn">Import backup</button>
             <input type="file" id="import-file" accept="application/json,.json" hidden />
           </div>
           <div class="btn-row" style="margin-top:0.5rem">
             <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
           </div>
-          <p class="dim" style="margin-top:0.75rem">v15 · Open · no invite lock · set logs + PRs</p>
+          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v16 · Open · set logs + insights + backup reminders</p>
         </div>
       </section>
     </main>
   </div>
 
   <div class="rest-timer-bar" id="rest-timer-bar" hidden></div>
+
+  <div class="modal-backdrop" id="session-summary-modal" hidden>
+    <div class="modal summary-modal" role="dialog" aria-labelledby="session-summary-title">
+      <div class="modal-header">
+        <h2 id="session-summary-title">Session complete</h2>
+        <button type="button" class="icon-btn" id="session-summary-close" aria-label="Close">×</button>
+      </div>
+      <div id="session-summary-body"></div>
+      <div class="btn-row" style="margin-top:1rem">
+        <button type="button" class="primary-btn" id="session-summary-macro">Log burn in MacroLedger</button>
+        <button type="button" class="ghost-btn" id="session-summary-done">Done</button>
+      </div>
+    </div>
+  </div>
 
   <nav class="bottom-nav" aria-label="Main">
     <div class="bottom-nav-inner">

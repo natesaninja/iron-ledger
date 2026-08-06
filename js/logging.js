@@ -141,6 +141,7 @@ export function bestSetE1rm(sets) {
 
 /**
  * Suggest next session targets from last working sets + rep range string.
+ * Uses average RPE when present: ≤7 → more aggressive load bump; ≥9 → hold/rep chase only.
  * Returns { lines: string[], sets: {weight,reps}[] }
  */
 export function suggestNext(last, repRangeStr) {
@@ -156,20 +157,39 @@ export function suggestNext(last, repRangeStr) {
   }
   const weights = last.sets.map((s) => +s.weight || 0);
   const reps = last.sets.map((s) => +s.reps || 0);
+  const rpes = last.sets.map((s) => +s.rpe).filter((r) => r >= 1 && r <= 10);
+  const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
   const topW = Math.max(...weights);
   const allHitTop = reps.every((r) => r >= hi);
   const allInRange = reps.every((r) => r >= lo);
   let nextW = topW;
   let nextReps = reps.map((r) => Math.min(hi, Math.max(lo, r)));
   let note = "Match last";
+  const smallBump = topW >= 100 ? 5 : 2.5;
+  const bigBump = topW >= 100 ? 10 : 5;
   if (allHitTop && topW > 0) {
-    // bump small plate
-    nextW = topW >= 100 ? topW + 5 : topW + 2.5;
-    nextReps = last.sets.map(() => lo);
-    note = `All sets hit ${hi}+ → try ${formatLoad(nextW)} × ${lo}+`;
+    if (avgRpe != null && avgRpe <= 7) {
+      nextW = topW + bigBump;
+      nextReps = last.sets.map(() => lo);
+      note = `Hit ${hi}+ @ RPE~${avgRpe.toFixed(1)} → try ${formatLoad(nextW)} × ${lo}+`;
+    } else if (avgRpe != null && avgRpe >= 9) {
+      nextW = topW;
+      nextReps = last.sets.map(() => lo);
+      note = `Hit reps but RPE~${avgRpe.toFixed(1)} — same load, clean ${lo}–${hi}`;
+    } else {
+      nextW = topW + smallBump;
+      nextReps = last.sets.map(() => lo);
+      note = `All sets hit ${hi}+ → try ${formatLoad(nextW)} × ${lo}+`;
+    }
   } else if (allInRange) {
-    nextReps = reps.map((r) => Math.min(hi, r + 1));
-    note = `In range → same weight, chase +1 rep`;
+    if (avgRpe != null && avgRpe <= 7 && topW > 0) {
+      nextW = topW + smallBump;
+      nextReps = last.sets.map(() => lo);
+      note = `In range @ easy RPE → ${formatLoad(nextW)} × ${lo}+`;
+    } else {
+      nextReps = reps.map((r) => Math.min(hi, r + 1));
+      note = `In range → same weight, chase +1 rep`;
+    }
   } else {
     note = `Stay at ${formatLoad(topW)} until every set ≥ ${lo}`;
   }
@@ -179,6 +199,254 @@ export function suggestNext(last, repRangeStr) {
   }));
   const lastLine = `Last (${last.day.slice(5)}): ${last.sets.map((s) => `${formatLoad(s.weight)}×${s.reps}`).join(", ")}`;
   return { lines: [lastLine, `Suggested: ${note}`], sets };
+}
+
+/** Round to nearest 2.5 (typical small plate). */
+export function roundPlate(w) {
+  return Math.round((+w || 0) * 2) / 2;
+}
+
+/**
+ * Simple plate math for a target total (bar + plates per side).
+ * @returns {{ bar, perSide, plates: number[], total }}
+ */
+export function plateBreakdown(targetTotal, bar = 45, inventory = [45, 25, 10, 5, 2.5]) {
+  const t = roundPlate(targetTotal);
+  let side = Math.max(0, (t - bar) / 2);
+  const plates = [];
+  for (const p of inventory) {
+    while (side + 1e-9 >= p) {
+      plates.push(p);
+      side = roundPlate(side - p);
+    }
+  }
+  const used = plates.reduce((a, b) => a + b, 0);
+  return { bar, perSide: used, plates, total: roundPlate(bar + used * 2) };
+}
+
+/**
+ * Summarize a finished (or partial) session for end-of-session UI + MacroLedger.
+ */
+export function buildSessionSummary(session, dayLog) {
+  const planned = (session?.exercises || []).reduce((n, e) => n + (+e.sets || 0), 0);
+  let loggedHard = 0;
+  let loggedAny = 0;
+  const lifts = [];
+  for (const ex of session?.exercises || []) {
+    const exLog = dayLog?.exercises?.[ex.exerciseId];
+    const hard = (exLog?.sets || []).filter(
+      (s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)
+    );
+    loggedHard += hard.length;
+    loggedAny += (exLog?.sets || []).filter((s) => s && (+s.reps > 0 || +s.weight > 0)).length;
+    if (hard.length) {
+      const top = hard.reduce((a, b) =>
+        epley1RM(b.weight, b.reps) > epley1RM(a.weight, a.reps) ? b : a
+      );
+      lifts.push({
+        name: ex.name,
+        exerciseId: ex.exerciseId,
+        sets: hard.length,
+        top: `${formatLoad(top.weight)}×${top.reps}`,
+        e1rm: epley1RM(top.weight, top.reps),
+      });
+    } else if (exLog?.skipReason) {
+      lifts.push({ name: ex.name, exerciseId: ex.exerciseId, skipped: true, skipReason: exLog.skipReason });
+    }
+  }
+  const pct = planned > 0 ? Math.round((loggedHard / planned) * 100) : 0;
+  return {
+    day: session?.day,
+    label: session?.label || "Session",
+    minutes: session?.estimatedMinutes || null,
+    plannedSets: planned,
+    loggedHard,
+    loggedAny,
+    pctOfPlan: pct,
+    lifts,
+    doseId: session?.doseId || "med",
+  };
+}
+
+/**
+ * Detect load stagnation: same top working weight for N completed sessions with logs.
+ */
+export function detectStagnation(logs, { minSessions = 3, lookback = 12 } = {}) {
+  const byEx = {};
+  const days = Object.keys(logs || {}).sort().reverse().slice(0, lookback);
+  for (const day of days) {
+    for (const [eid, exLog] of Object.entries(logs[day]?.exercises || {})) {
+      const hard = (exLog.sets || []).filter((s) => s && +s.weight > 0 && +s.reps > 0 && s.hard !== false);
+      if (!hard.length) continue;
+      const topW = Math.max(...hard.map((s) => +s.weight));
+      if (!byEx[eid]) byEx[eid] = [];
+      byEx[eid].push({ day, topW });
+    }
+  }
+  const out = [];
+  for (const [eid, rows] of Object.entries(byEx)) {
+    if (rows.length < minSessions) continue;
+    const recent = rows.slice(0, minSessions);
+    const w = recent[0].topW;
+    if (recent.every((r) => r.topW === w) && w > 0) {
+      const meta = EX_MAP[eid];
+      out.push({
+        exerciseId: eid,
+        name: meta?.name || eid,
+        weight: w,
+        sessions: recent.length,
+        days: recent.map((r) => r.day),
+      });
+    }
+  }
+  return out.sort((a, b) => b.sessions - a.sessions);
+}
+
+/** ISO dates for last N calendar days ending at `today` (inclusive). */
+export function recentIsoDays(today, n = 14) {
+  const t = today || new Date().toISOString().slice(0, 10);
+  const tDate = new Date(t + "T12:00:00");
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(tDate);
+    d.setDate(d.getDate() - i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+/**
+ * Missed planned train days in lookback (had plan session, not completed, day < today).
+ */
+export function countMissedSessions(planSessions, completedSessions, today, lookbackDays = 14) {
+  const from = recentIsoDays(today, lookbackDays).slice(-1)[0];
+  let missed = 0;
+  for (const s of planSessions || []) {
+    if (s.day >= today) continue;
+    if (from && s.day < from) continue;
+    if (!completedSessions?.[s.day]?.completed) missed++;
+  }
+  return missed;
+}
+
+/**
+ * Cover insights: weekly volume, stagnation, deload suggestion (quiet, MED tone).
+ */
+export function buildCoverInsights({
+  logs,
+  completedSessions,
+  dayDose,
+  plan,
+  today = null,
+  lookbackDays = 14,
+} = {}) {
+  const t = today || new Date().toISOString().slice(0, 10);
+  const fromDays = recentIsoDays(t, lookbackDays);
+  const from = fromDays[fromDays.length - 1];
+  const items = [];
+  const logged = loggedCoverage(logs, from, t < "9999" ? undefined : t);
+  // range: from inclusive through end of today — use day+1 as exclusive end via filter in loggedCoverage
+  const loggedWin = {};
+  for (const day of Object.keys(logs || {})) {
+    if (day < from || day > t) continue;
+    for (const [eid, exLog] of Object.entries(logs[day]?.exercises || {})) {
+      const meta = EX_MAP[eid];
+      if (!meta) continue;
+      const n = (exLog.sets || []).filter((s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)).length;
+      if (!n) continue;
+      for (const m of meta.primary || []) loggedWin[m] = (loggedWin[m] || 0) + n;
+      for (const m of meta.secondary || []) loggedWin[m] = (loggedWin[m] || 0) + n * 0.5;
+    }
+  }
+  void logged;
+
+  // Top 3 muscles by logged hard-set volume
+  const volumeRows = Object.entries(loggedWin)
+    .map(([id, n]) => ({ id, name: MUSCLE_MAP[id]?.name || id, n }))
+    .sort((a, b) => b.n - a.n);
+  if (volumeRows.length) {
+    const top = volumeRows.slice(0, 3).map((r) => `${r.name} ${Math.round(r.n)}`);
+    const low = volumeRows.filter((r) => r.n < 4).slice(0, 3);
+    items.push({
+      id: "volume",
+      tone: "ok",
+      title: `${lookbackDays}-day logged hard sets`,
+      body: top.join(" · ") + (low.length ? `. Light: ${low.map((r) => r.name).join(", ")}` : "."),
+    });
+  } else {
+    items.push({
+      id: "volume-empty",
+      tone: "dim",
+      title: "No hard sets logged yet",
+      body: "Log loads on Today — Cover compares planned vs actual work.",
+    });
+  }
+
+  const stagnant = detectStagnation(logs, { minSessions: 3, lookback: lookbackDays + 4 });
+  for (const s of stagnant.slice(0, 3)) {
+    items.push({
+      id: `stag-${s.exerciseId}`,
+      tone: "warn",
+      title: `${s.name} stuck at ${formatLoad(s.weight)}`,
+      body: `Same top load for ${s.sessions} sessions. Try +1 rep, a small plate, or a swap if joints feel beat.`,
+    });
+  }
+
+  const rough = roughDaysRecent(dayDose, 7, t);
+  const missed = countMissedSessions(plan?.sessions || [], completedSessions, t, lookbackDays);
+  let deloadSuggested = false;
+  let deloadReason = "";
+  if (rough >= 4) {
+    deloadSuggested = true;
+    deloadReason = `${rough} rough days in the last week`;
+  } else if (missed >= 3) {
+    deloadSuggested = true;
+    deloadReason = `${missed} planned sessions missed in ${lookbackDays} days`;
+  } else if (stagnant.length >= 3) {
+    deloadSuggested = true;
+    deloadReason = "Several lifts stalled — a short deload often unlocks progress";
+  }
+  if (deloadSuggested) {
+    items.unshift({
+      id: "deload",
+      tone: "ember",
+      title: "Consider a 7-day deload",
+      body: `${deloadReason}. Settings → Start 7-day deload forces Low dose on train days.`,
+      action: "deload",
+    });
+  }
+
+  // Push/pull balance (FOCUS-aligned muscle ids)
+  const push =
+    (loggedWin.chest || 0) +
+    (loggedWin.front_delts || 0) +
+    (loggedWin.side_delts || 0) +
+    (loggedWin.triceps || 0);
+  const pull =
+    (loggedWin.lats || 0) +
+    (loggedWin.upper_back || 0) +
+    (loggedWin.rear_delts || 0) +
+    (loggedWin.biceps || 0);
+  if (push + pull >= 12) {
+    const ratio = push / Math.max(pull, 0.5);
+    if (ratio > 1.45) {
+      items.push({
+        id: "balance-push",
+        tone: "warn",
+        title: "Push-heavy last two weeks",
+        body: "Logged push volume outruns pull. Prefer rows / pulldowns when swapping.",
+      });
+    } else if (ratio < 0.7) {
+      items.push({
+        id: "balance-pull",
+        tone: "warn",
+        title: "Pull-heavy last two weeks",
+        body: "Logged pull volume outruns push. Keep pressing if recovery allows.",
+      });
+    }
+  }
+
+  return { items, deloadSuggested, deloadReason, stagnant, volumeRows };
 }
 
 export function formatLoad(w) {
@@ -207,10 +475,6 @@ export function warmupLadder(workWeight, role) {
   return steps
     .filter((s) => w * s.pct >= 20 || s.pct >= 0.5)
     .map((s) => `${formatLoad(roundPlate(w * s.pct))} × ${s.reps}`);
-}
-
-function roundPlate(w) {
-  return Math.round(w * 2) / 2;
 }
 
 /**
