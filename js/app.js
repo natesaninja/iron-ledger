@@ -69,7 +69,15 @@ import {
   buildCoverInsights,
 } from "./logging.js";
 
-const APP_VERSION = "16";
+const APP_VERSION = "17";
+
+/** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
+function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
+  return `<details class="fold ${className}"${open ? " open" : ""}>
+    <summary class="fold-sum">${summary}</summary>
+    <div class="fold-body">${bodyHtml}</div>
+  </details>`;
+}
 const LIVE_URL = APP_PUBLIC_URL || "https://natesaninja.github.io/iron-ledger/";
 const APP_NAME = "Iron Ledger";
 /** Sibling diet app — deep-link exercise log after a session */
@@ -364,34 +372,41 @@ function renderCoachPanel(session) {
     nextSession: upcoming[0] || null,
   });
   const dose = session ? doseForDay(session.day) : DOSE_PROFILES[state.settings.defaultDose || "med"];
-  const doseLine = session
-    ? `Today’s dose: ${dose.label} (${dose.feel}). Switch Low / MED / OED above if energy changes mid-day.`
-    : `Default dose: ${dose.label}. Set per day when you have a session.`;
   const set = (id, text) => {
     const el = document.getElementById(id);
     if (el) el.textContent = text || "";
   };
-  set("coach-headline", script.headline);
-  set("coach-mission", `${script.mission} ${doseLine}`);
+  // Short line only on the card face — details live in the fold
+  const shortMission = script.mission
+    ? String(script.mission).split(/[.!?]/)[0].trim() + "."
+    : "Show up and lift.";
+  set("coach-headline", script.headline || "Coach");
+  set("coach-mission", shortMission);
   set(
     "coach-science",
     script.science
-      ? `Evidence angle: ${script.science} Dose: ${dose.science}`
+      ? `Evidence: ${script.science} · Dose: ${dose.science}`
       : `Dose: ${dose.science}`
   );
   const roughN = roughDaysRecent(state.dayDose, 7, todayISO());
   let progress = script.progressNote || "";
   if (roughN >= 2) {
-    progress += ` · ${roughN} Rough days in 7 — protect sleep; consider deload or extra rest.`;
+    progress += ` · ${roughN} rough days this week — protect sleep.`;
   }
   if (isDeloadActive()) {
-    progress += ` · Deload active through ${state.deloadUntil} (sessions forced Low).`;
+    progress += ` · Deload on through ${state.deloadUntil}.`;
   }
   set("coach-progress", progress);
-  set("coach-unlock", script.unlockHint);
+  set("coach-unlock", script.unlockHint || "");
   const ol = document.getElementById("coach-steps");
   if (ol) {
     ol.innerHTML = (script.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+  }
+  const doseEl = document.getElementById("coach-dose-line");
+  if (doseEl) {
+    doseEl.textContent = session
+      ? `Dose today: ${dose.short} — change with the buttons above if energy shifts.`
+      : `Default dose: ${dose.short}.`;
   }
   renderStackCheckinBanner();
   renderRestTimerBar();
@@ -410,10 +425,14 @@ function renderDosePicker(iso) {
   const p = doseForDay(iso);
   return `
     <div class="dose-panel" id="dose-panel">
-      <div class="dose-label">How I feel → dose</div>
+      <div class="dose-label">How I feel</div>
       <div class="dose-btns" role="group" aria-label="Training dose">${btns}</div>
-      <p class="dose-hint"><strong>${escapeHtml(p.label)}</strong> — ${escapeHtml(p.feel)}. Change anytime; session rebuilds on the fly.</p>
-      <p class="dim dose-science">${escapeHtml(p.science)}</p>
+      ${foldHtml(
+        "What Low / MED / OED means",
+        `<p class="dose-hint"><strong>${escapeHtml(p.label)}</strong> — ${escapeHtml(p.feel)}</p>
+         <p class="dim dose-science">${escapeHtml(p.science)}</p>
+         <p class="dim">Change anytime — the session rebuilds.</p>`
+      )}
     </div>`;
 }
 
@@ -443,38 +462,35 @@ function renderToday() {
 
   if (restToday) {
     hero.innerHTML = `
-      <div class="hero-kicker">Today · ${weekdayShort(today)} ${today}</div>
-      <div class="hero-title">Sleep / transition</div>
-      <div class="hero-meta"><span class="chip rest">Post-nights · no hard lift</span></div>
-      <p class="hint" style="margin:0">Protect recovery. Next train day when ready.</p>
+      <div class="hero-kicker">Today · ${weekdayShort(today)}</div>
+      <div class="hero-title">Rest day</div>
+      <div class="hero-meta"><span class="chip rest">No hard lift</span></div>
     `;
   } else if (lightToday && !trainToday) {
     hero.innerHTML = `
-      <div class="hero-kicker">Today · ${weekdayShort(today)} ${today}</div>
+      <div class="hero-kicker">Today · ${weekdayShort(today)}</div>
       <div class="hero-title">Easy day</div>
-      <div class="hero-meta"><span class="chip warn">Walk / mobility only</span></div>
-      <p class="hint" style="margin:0">Optional. No commercial gym pressure.</p>
+      <div class="hero-meta"><span class="chip warn">Walk / mobility</span></div>
     `;
   } else if (trainToday && session) {
     const dose = doseForDay(session.day);
     hero.innerHTML = `
-      <div class="hero-kicker">Today · ${weekdayShort(today)} ${today}</div>
+      <div class="hero-kicker">Today · ${weekdayShort(today)}</div>
       <div class="hero-title">${session.label}</div>
       <div class="hero-meta">
-        <span class="chip train">Train day</span>
+        <span class="chip train">Train</span>
         <span class="chip ember">${escapeHtml(dose.short)}</span>
         <span class="chip">~${session.estimatedMinutes} min</span>
         <span class="chip">${session.exercises.length} lifts</span>
         ${session.completed ? '<span class="chip ok">Done</span>' : ""}
       </div>
       ${renderDosePicker(session.day)}
-      <p class="hint" style="margin:0.65rem 0 0">Commercial gym · skip anything that feels unsafe</p>
     `;
     activeSessionIso = today;
   } else if (session) {
     const dose = doseForDay(session.day);
     hero.innerHTML = `
-      <div class="hero-kicker">Next session · ${weekdayShort(session.day)} ${session.day}</div>
+      <div class="hero-kicker">Next · ${weekdayShort(session.day)}</div>
       <div class="hero-title">${session.label}</div>
       <div class="hero-meta">
         <span class="chip train">Planned</span>
@@ -482,14 +498,13 @@ function renderToday() {
         <span class="chip">~${session.estimatedMinutes} min</span>
       </div>
       ${renderDosePicker(session.day)}
-      <p class="hint" style="margin:0.65rem 0 0">Preview below. Change dose anytime if energy shifts.</p>
     `;
     activeSessionIso = session.day;
   } else {
     hero.innerHTML = `
       <div class="hero-kicker">Iron Ledger</div>
-      <div class="hero-title">No train days set</div>
-      <p class="hint" style="margin:0">Open <strong>Plan</strong> and tap the days you can train — or load a sample schedule.</p>
+      <div class="hero-title">No train days</div>
+      <p class="hint" style="margin:0">Open <strong>Plan</strong> and tap the days you can train.</p>
     `;
   }
 
@@ -521,10 +536,23 @@ function renderSessionCard(session) {
 
   title.textContent = `${weekdayShort(session.day)} · ${session.label}`;
   const box = +state.settings.timeBoxMinutes || 0;
-  const timeNote = box >= 25 ? ` · Time-box ${box} min` : "";
-  rationale.textContent = (session.rationale || "") + timeNote;
+  const timeNote = box >= 25 ? `Time-box ${box} min.` : "";
+  // Rationale stays optional/collapsed — not dumped on the card face
+  if (rationale) {
+    const why = (session.rationale || "").trim();
+    if (why || timeNote) {
+      rationale.hidden = false;
+      rationale.className = "session-why-wrap";
+      rationale.innerHTML = foldHtml(
+        "Why this session?",
+        `<p class="hint" style="margin:0">${escapeHtml(why)}${why && timeNote ? " " : ""}${escapeHtml(timeNote)}</p>`
+      );
+    } else {
+      rationale.hidden = true;
+      rationale.innerHTML = "";
+    }
+  }
   const { caps } = getCoach();
-  const whyOpen = caps.showWhyDefaultOpen;
   const showWarm = state.settings.showWarmups !== false;
 
   list.innerHTML = session.exercises
@@ -570,23 +598,39 @@ function renderSessionCard(session) {
           ? (() => {
               const pb = plateBreakdown(workW, +state.settings.barWeight || 45);
               if (!pb.plates.length) return "";
-              return `<div class="plate-line dim">Plates/side (~${pb.bar} bar): ${pb.plates.join(" + ") || "—"} → ${formatLoad(pb.total)}</div>`;
+              return `<p class="plate-line dim">Plates/side (~${pb.bar} bar): ${pb.plates.join(" + ") || "—"} → ${formatLoad(pb.total)}</p>`;
             })()
           : "";
+
+      const tipsBody = [
+        sug.lines.length
+          ? `<div class="prog-line">${sug.lines.map((l) => escapeHtml(l)).join("<br/>")}</div>`
+          : "",
+        warm.length
+          ? `<div class="warmup-line"><span class="dim">Warm-up:</span> ${warm.map(escapeHtml).join(" → ")}</div>`
+          : "",
+        plateHint,
+        cues.length
+          ? `<div class="cues-line"><strong>Form cues:</strong> ${cues.map(escapeHtml).join(" · ")}</div>`
+          : "",
+        `<div class="ex-why">${escapeHtml(ex.why || "Picked to cover today’s muscle needs.")}</div>`,
+        `<div class="skip-row">
+          <label class="dim">Skip lift:</label>
+          <select data-skip="${i}" aria-label="Skip reason">
+            <option value="">—</option>
+            ${SKIP_REASONS.map((r) => `<option value="${r.id}" ${skip === r.id ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
+          </select>
+        </div>`,
+      ]
+        .filter(Boolean)
+        .join("");
 
       return `
     <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""}" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
       <button type="button" class="ex-check" data-toggle="${i}" aria-label="Mark done">${ex.done ? "✓" : ""}</button>
       <div class="ex-main">
         <div class="ex-name">${escapeHtml(ex.name)}</div>
-        <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${ex.role} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}</div>
-        <div class="prog-line">${sug.lines.map((l) => escapeHtml(l)).join("<br/>")}</div>
-        ${
-          warm.length
-            ? `<div class="warmup-line"><span class="dim">Warm-up:</span> ${warm.map(escapeHtml).join(" → ")}</div>`
-            : ""
-        }
-        ${plateHint}
+        <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}</div>
         <div class="set-log" data-ex-log="${i}">
           <div class="set-head"><span></span><span>Load</span><span></span><span>Reps</span><span>RPE</span><span></span></div>
           ${setRows}
@@ -595,23 +639,10 @@ function renderSessionCard(session) {
             <button type="button" class="ghost-btn tiny" data-same-last="${i}">Same as last</button>
             <button type="button" class="ghost-btn tiny" data-add-set="${i}">+ Set</button>
             <button type="button" class="ghost-btn tiny" data-rest="${restSec}" data-ex-rest="${i}">Rest ${restSec >= 60 ? restSec / 60 + "m" : restSec + "s"}</button>
-            <button type="button" class="ghost-btn tiny" data-save-log="${i}">Save log</button>
+            <button type="button" class="ghost-btn tiny" data-save-log="${i}">Save</button>
           </div>
         </div>
-        <div class="skip-row">
-          <label class="dim">Skip:</label>
-          <select data-skip="${i}" aria-label="Skip reason">
-            <option value="">—</option>
-            ${SKIP_REASONS.map((r) => `<option value="${r.id}" ${skip === r.id ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
-          </select>
-        </div>
-        ${
-          cues.length
-            ? `<div class="cues-line"><strong>Cues:</strong> ${cues.map(escapeHtml).join(" · ")}</div>`
-            : ""
-        }
-        <button type="button" class="why-toggle" data-why="${i}" aria-expanded="${whyOpen ? "true" : "false"}">${whyOpen ? "Hide reason" : "Why this lift?"}</button>
-        <div class="ex-why" id="why-${i}" ${whyOpen ? "" : "hidden"}>${escapeHtml(ex.why || "Selected to cover today’s muscle needs.")}</div>
+        ${foldHtml("Tips / skip", tipsBody, { className: "fold-ex" })}
       </div>
       <div class="ex-actions">
         ${caps.allowSwap ? `<button type="button" data-swap="${i}">Swap</button>` : ""}
@@ -631,16 +662,6 @@ function renderSessionCard(session) {
   });
   list.querySelectorAll("[data-swap]").forEach((btn) => {
     btn.addEventListener("click", () => openSwap(session.day, +btn.dataset.swap));
-  });
-  list.querySelectorAll("[data-why]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const i = btn.dataset.why;
-      const panel = document.getElementById(`why-${i}`);
-      const open = panel.hidden;
-      panel.hidden = !open;
-      btn.setAttribute("aria-expanded", open ? "true" : "false");
-      btn.textContent = open ? "Hide reason" : "Why this lift?";
-    });
   });
   list.querySelectorAll("[data-save-log]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1002,7 +1023,6 @@ function renderStackCheckinBanner() {
   el.innerHTML = `
     <div class="card stack-card">
       <h2>Stack today</h2>
-      <p class="hint">Local check-in only — not medical advice.</p>
       <div class="stack-check-list">
         ${stack
           .map((id) => {
@@ -1277,22 +1297,23 @@ function renderCoverInsights() {
     return;
   }
   el.hidden = false;
+  // Titles only on the face; long copy behind each dropdown
   el.innerHTML = `
     <div class="card insights-card">
       <h2>Insights</h2>
-      <p class="hint">Quiet read of your last two weeks — educational, not medical.</p>
       <ul class="insight-list">
         ${insights.items
           .map(
             (it) => `
           <li class="insight-item tone-${escapeHtml(it.tone || "dim")}">
-            <strong>${escapeHtml(it.title)}</strong>
-            <p>${escapeHtml(it.body)}</p>
-            ${
-              it.action === "deload"
-                ? `<button type="button" class="ghost-btn tiny" data-insight-deload>Start 7-day deload</button>`
-                : ""
-            }
+            ${foldHtml(
+              escapeHtml(it.title),
+              `<p>${escapeHtml(it.body)}</p>${
+                it.action === "deload"
+                  ? `<button type="button" class="ghost-btn tiny" data-insight-deload>Start 7-day deload</button>`
+                  : ""
+              }`
+            )}
           </li>`
           )
           .join("")}
@@ -1470,21 +1491,21 @@ function renderSupps() {
           ${onStack ? "On stack ✓" : "Add to stack"}
         </button>
       </div>
-      ${claims ? `<ul class="claim-list">${claims}</ul>` : ""}
-      <p class="sup-meta"><strong>Studied / MED dose:</strong> ${escapeHtml(s.medDose)}</p>
-      <p class="sup-meta"><strong>When:</strong> ${escapeHtml(s.when)} · ${escapeHtml(s.window)}</p>
-      <p class="sup-why"><strong>Why:</strong> ${escapeHtml(s.why)}</p>
-      <details class="sup-details">
-        <summary>Science, cautions &amp; skip rules</summary>
-        <div class="sup-science"><strong>Science (short):</strong> ${escapeHtml(s.science)}</div>
+      ${foldHtml(
+        "Details",
+        `${claims ? `<ul class="claim-list">${claims}</ul>` : ""}
+        <p class="sup-meta"><strong>Dose:</strong> ${escapeHtml(s.medDose)}</p>
+        <p class="sup-meta"><strong>When:</strong> ${escapeHtml(s.when)} · ${escapeHtml(s.window)}</p>
+        <p class="sup-why">${escapeHtml(s.why)}</p>
+        <div class="sup-science">${escapeHtml(s.science)}</div>
         ${
           interactions
-            ? `<div class="sup-ix"><strong>Interactions / cautions:</strong><ul class="ix-list">${interactions}</ul></div>`
+            ? `<div class="sup-ix"><strong>Cautions:</strong><ul class="ix-list">${interactions}</ul></div>`
             : ""
         }
         <p class="sup-meta"><strong>Skip if:</strong> ${escapeHtml(s.skipIf)}</p>
-        <p class="dim">${escapeHtml(s.wastedEffortNote)}</p>
-      </details>
+        <p class="dim">${escapeHtml(s.wastedEffortNote)}</p>`
+      )}
     </article>`;
     })
     .join("");
@@ -1573,7 +1594,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · Open · set logs + insights + backup reminders`;
+    verNote.textContent = `v${APP_VERSION} · quieter UI · set logs + backups`;
   }
 
   const box = document.getElementById("exclude-list");

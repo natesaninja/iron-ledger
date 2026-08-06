@@ -495,33 +495,141 @@ button {
   margin-top: 0.15rem;
 }
 
-.why-toggle {
+/* —— Progressive disclosure (big tap targets, short default view) —— */
+.fold {
   margin-top: 0.45rem;
-  font-size: 0.72rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.fold-sum {
+  list-style: none;
+  cursor: pointer;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ember);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.fold-sum::-webkit-details-marker {
+  display: none;
+}
+
+.fold-sum::after {
+  content: "▾";
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.fold[open] > .fold-sum::after {
+  transform: rotate(-180deg);
+}
+
+.fold-sum:active {
+  background: var(--bg-hover);
+}
+
+.fold-body {
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.fold-body > :first-child {
+  margin-top: 0.55rem;
+}
+
+.fold-ex {
+  margin-top: 0.5rem;
+}
+
+.fold-card {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: block;
+}
+
+.fold-card-sum {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ember);
-  min-height: 32px;
-  padding: 0;
-  text-align: left;
+  color: var(--steel-bright);
+  padding: 0.85rem 1rem;
 }
-.why-toggle:hover {
-  color: var(--ember-hover);
+
+.fold-card .fold-body {
+  padding: 0 1rem 1rem;
+}
+
+.fold-h3 {
+  margin: 0.85rem 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.fold-h3:first-child {
+  margin-top: 0.35rem;
+}
+
+.coach-one-liner {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.session-why-wrap {
+  margin-bottom: 0.35rem;
+}
+
+.session-why-wrap .fold {
+  margin-top: 0;
 }
 
 .ex-why {
   margin-top: 0.45rem;
-  padding: 0.6rem 0.7rem;
+  padding: 0.55rem 0.65rem;
   border-radius: var(--radius-sm);
-  background: var(--bg-inset);
+  background: var(--bg-card);
   border-left: 3px solid var(--steel-dim);
-  border-top: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   font-size: 0.84rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.insight-item .fold {
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
+.insight-item .fold-sum {
+  color: inherit;
+  padding: 0.15rem 0;
+  min-height: 40px;
+}
+
+.insight-item .fold-body {
+  border-top: none;
+  padding: 0 0 0.15rem;
+}
+
+.insight-item .fold-sum::after {
+  color: var(--text-dim);
 }
 
 .ex-actions {

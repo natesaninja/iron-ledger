@@ -76,21 +76,27 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v16</span>
+          <span class="app-version" id="app-version">v17</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div id="stack-checkin" hidden></div>
         <div class="card coach-card" id="coach-card">
           <h2 id="coach-headline">Coach</h2>
-          <p class="hint" id="coach-mission"></p>
-          <div class="sup-science" id="coach-science"></div>
-          <ol class="coach-steps" id="coach-steps"></ol>
-          <p class="dim" id="coach-progress"></p>
-          <p class="hint" id="coach-unlock"></p>
+          <p class="coach-one-liner" id="coach-mission"></p>
+          <details class="fold">
+            <summary class="fold-sum">More coach tips</summary>
+            <div class="fold-body">
+              <p class="dim" id="coach-dose-line"></p>
+              <div class="sup-science" id="coach-science"></div>
+              <ol class="coach-steps" id="coach-steps"></ol>
+              <p class="dim" id="coach-progress"></p>
+              <p class="hint" id="coach-unlock"></p>
+            </div>
+          </details>
         </div>
         <div class="card" id="today-session-card">
           <h2 id="today-session-title">Session</h2>
-          <p class="hint" id="today-rationale"></p>
+          <div id="today-rationale" class="session-why-wrap" hidden></div>
           <ul class="ex-list" id="today-exercises"></ul>
           <div class="btn-row" id="today-actions"></div>
         </div>
@@ -112,16 +118,21 @@
           <div class="cal-grid" id="cal-grid"></div>
           <div class="legend">
             <span><i style="background:var(--train)"></i>Train</span>
-            <span><i style="background:var(--danger)"></i>Sleep / post-nights</span>
-            <span><i style="background:var(--warn)"></i>Easy only</span>
-            <span><i style="background:var(--border)"></i>Off work</span>
+            <span><i style="background:var(--danger)"></i>Rest</span>
+            <span><i style="background:var(--warn)"></i>Easy</span>
+            <span><i style="background:var(--border)"></i>Off</span>
           </div>
-          <p class="hint" style="margin-top:0.75rem">
-            Tap a day: <strong>Train</strong> → <strong>Post-nights rest</strong> → <strong>Easy</strong> → clear.
-          </p>
+          <details class="fold" style="margin-top:0.65rem">
+            <summary class="fold-sum">How to use the calendar</summary>
+            <div class="fold-body">
+              <p class="hint" style="margin:0">
+                Tap a day: <strong>Train</strong> → <strong>Rest</strong> → <strong>Easy</strong> → clear.
+              </p>
+            </div>
+          </details>
           <div class="btn-row">
             <button type="button" class="primary-btn" id="rebuild-plan">Rebuild plan</button>
-            <button type="button" class="ghost-btn" id="seed-august">Load sample schedule</button>
+            <button type="button" class="ghost-btn" id="seed-august">Load sample</button>
           </div>
         </div>
         <div class="card">
@@ -134,55 +145,57 @@
       <section id="view-coverage" class="view">
         <div id="cover-insights" hidden></div>
         <div class="card">
-          <h2>Coverage vs MED</h2>
+          <h2>Coverage</h2>
           <p class="hint" id="coverage-meta"></p>
-          <p class="dim cov-legend">Top bar = <strong>planned</strong> · Bottom = <strong>logged hard sets</strong></p>
           <div id="coverage-bars"></div>
+          <details class="fold" style="margin-top:0.65rem">
+            <summary class="fold-sum">How to read the bars</summary>
+            <div class="fold-body">
+              <p class="dim cov-legend" style="margin:0">
+                Top = <strong>planned</strong> · Bottom = <strong>logged hard sets</strong>.
+                Aim ~70%+ on main muscles — not 150% on everything.
+              </p>
+            </div>
+          </details>
         </div>
         <div class="card">
-          <h2>Session history</h2>
-          <p class="hint">Completed and logged sessions. Tap to open on Today.</p>
+          <h2>History</h2>
           <div id="history-list"></div>
         </div>
         <div class="card">
           <h2>PR board</h2>
-          <p class="hint">Best estimated 1RM by pattern from logged working sets (quiet ledger — no confetti).</p>
           <div id="pr-board"></div>
         </div>
-        <div class="card">
-          <h2>Why MED volume</h2>
-          <p class="hint">
-            Planned bars show what the planner assigned. Logged bars show hard sets you actually entered on Today.
-            Aim for ~70%+ on primaries. Chasing 150% on everything usually steals recovery.
-          </p>
-        </div>
-        <div class="card">
-          <h2>MED principles</h2>
-          <div id="med-principles"></div>
-        </div>
-        <div class="card">
-          <h2>Recovery</h2>
-          <p class="hint">
-            Hard sets create fatigue that decays over ~2–3 days (legs longer).
-            Post-nights: mark rest, not iron. Remove a train day and rebuild — coverage rebalances so effort isn’t wasted on the wrong muscles.
-          </p>
-        </div>
+        <details class="card fold fold-card">
+          <summary class="fold-sum fold-card-sum">Learn: MED &amp; recovery</summary>
+          <div class="fold-body">
+            <h3 class="fold-h3">Why MED volume</h3>
+            <p class="hint">
+              Planned bars = what the plan assigned. Logged bars = hard sets you entered.
+              Chasing max volume usually steals recovery.
+            </p>
+            <h3 class="fold-h3">MED principles</h3>
+            <div id="med-principles"></div>
+            <h3 class="fold-h3">Recovery</h3>
+            <p class="hint">
+              Hard sets create fatigue for ~2–3 days (legs longer).
+              On rest days, rest — rebuild the plan if you skip a train day.
+            </p>
+          </div>
+        </details>
       </section>
 
       <!-- SUPPLEMENTS -->
       <section id="view-supps" class="view">
         <div class="card">
-          <h2>Training evidence</h2>
-          <p class="hint">
-            Search training supplements by name or claim. See <strong>evidence grades</strong>, studied dose, timing, and cautions.
-            Educational — <strong>not medical advice</strong>. Food, sleep, and the plan do the heavy lifting.
-          </p>
-          <div class="field" style="margin-top:0.75rem">
+          <h2>Supplements</h2>
+          <p class="dim" style="margin:0 0 0.65rem">Not medical advice · food &amp; sleep first</p>
+          <div class="field">
             <label for="supp-search">Search</label>
             <input
               type="search"
               id="supp-search"
-              placeholder="e.g. creatine, sleep, strength, pump…"
+              placeholder="creatine, sleep, strength…"
               autocomplete="off"
               enterkeyhint="search"
             />
@@ -190,41 +203,32 @@
           <div class="supp-filters" id="supp-filters" role="toolbar" aria-label="Filter supplements">
             <button type="button" class="supp-filter-btn active" data-filter="all">All</button>
             <button type="button" class="supp-filter-btn" data-filter="stack">My stack</button>
-            <button type="button" class="supp-filter-btn" data-filter="core">MED core</button>
+            <button type="button" class="supp-filter-btn" data-filter="core">Core</button>
             <button type="button" class="supp-filter-btn" data-filter="optional">Optional</button>
             <button type="button" class="supp-filter-btn" data-filter="conditional">If needed</button>
-            <button type="button" class="supp-filter-btn" data-filter="skip">Usually skip</button>
+            <button type="button" class="supp-filter-btn" data-filter="skip">Skip</button>
           </div>
           <p class="dim" id="supp-count" style="margin:0.5rem 0 0"></p>
           <div id="supp-list"></div>
         </div>
-        <div class="card">
-          <h2>How to read grades</h2>
-          <p class="hint">
-            <strong>Strong / moderate</strong> = human research mostly supports the claim for training contexts.
-            <strong>Mixed</strong> = depends or inconsistent.
-            <strong>Weak / insufficient</strong> = don’t build your stack on it.
-            Dose lines are <em>studied / practical ranges</em>, not personalized prescriptions.
-          </p>
-        </div>
-        <div class="card">
-          <h2>What we skip on purpose</h2>
-          <p class="hint">
-            Fat burners, “test boosters,” and most pre-workout kitchen sinks.
-            Under time pressure those rarely beat creatine + protein + optional caffeine + fixing real deficiencies.
-            BCAAs and HMB are listed so you can see <em>why</em> they’re low priority.
-          </p>
-        </div>
-        <div class="card">
-          <h2>MacroLedger</h2>
-          <p class="hint">
-            Sibling diet app. After you <strong>mark a session complete</strong>, you can log the burn in MacroLedger
-            (one tap). Protein and calories stay there; lifts stay here.
-          </p>
-          <p class="dim" style="margin-top:0.5rem">
-            Live: <a href="https://natesaninja.github.io/macroledger/" style="color:var(--ember)">macroledger</a>
-          </p>
-        </div>
+        <details class="card fold fold-card">
+          <summary class="fold-sum fold-card-sum">Learn: grades &amp; what we skip</summary>
+          <div class="fold-body">
+            <p class="hint">
+              <strong>Strong / moderate</strong> = research mostly supports it for training.
+              <strong>Mixed</strong> = depends.
+              <strong>Weak</strong> = don’t build a stack on it.
+            </p>
+            <p class="hint">
+              We deprioritize fat burners, “test boosters,” and kitchen-sink pre-workouts.
+              Creatine + protein + sleep usually win.
+            </p>
+            <p class="hint">
+              <strong>MacroLedger</strong> (diet sibling): log the burn after a session.
+              <a href="https://natesaninja.github.io/macroledger/" style="color:var(--ember)">Open MacroLedger</a>
+            </p>
+          </div>
+        </details>
       </section>
 
       <!-- SETTINGS -->
@@ -383,7 +387,7 @@
           <div class="btn-row" style="margin-top:0.5rem">
             <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
           </div>
-          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v16 · Open · set logs + insights + backup reminders</p>
+          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v17 · quieter UI · set logs + backups</p>
         </div>
       </section>
     </main>
