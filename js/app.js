@@ -69,7 +69,7 @@ import {
   buildCoverInsights,
 } from "./logging.js";
 
-const APP_VERSION = "17";
+const APP_VERSION = "18";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -303,7 +303,7 @@ function applyTheme(pref) {
   localStorage.setItem("sl_theme_pref", pref);
   localStorage.setItem("sl_theme", mode); // resolved, for older reads
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", mode === "midnight" ? "#070708" : "#e4e6ea");
+  if (meta) meta.setAttribute("content", mode === "midnight" ? "#0c0e0b" : "#d8d4c4");
   const btn = document.getElementById("theme-toggle");
   if (btn) {
     const isDark = mode === "midnight";
@@ -329,7 +329,7 @@ function initTheme() {
     // Quick toggle: always flip resolved mode to the opposite (sets explicit pref)
     const cur = document.documentElement.getAttribute("data-theme");
     applyTheme(cur === "midnight" ? "light" : "midnight");
-    toast(cur === "midnight" ? "Light plate" : "Iron dark");
+    toast(cur === "midnight" ? "Field day" : "Field dark");
   });
 
   // Follow OS if user chose System
@@ -1594,7 +1594,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · quieter UI · set logs + backups`;
+    verNote.textContent = `v${APP_VERSION} · field order UI · set logs + backups`;
   }
 
   const box = document.getElementById("exclude-list");
@@ -1901,9 +1901,9 @@ function initEvents() {
     applyTheme(e.target.value);
     toast(
       e.target.value === "midnight"
-        ? "Iron dark"
+        ? "Field dark"
         : e.target.value === "light"
-          ? "Light plate"
+          ? "Field day"
           : "System theme"
     );
   });
