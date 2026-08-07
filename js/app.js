@@ -69,7 +69,7 @@ import {
   buildCoverInsights,
 } from "./logging.js";
 
-const APP_VERSION = "19";
+const APP_VERSION = "19.1";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -576,19 +576,27 @@ function renderSessionCard(session) {
           (s, si) => `
         <div class="set-row" data-ex="${i}" data-set="${si}">
           <span class="set-num">${si + 1}</span>
-          <div class="stepper" data-field="w">
-            <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight">−</button>
-            <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
-            <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight">+</button>
+          <div class="set-fields">
+            <div class="set-load-line">
+              <div class="stepper stepper-w" data-field="w">
+                <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight">−</button>
+                <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" max="9999" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
+                <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight">+</button>
+              </div>
+              <span class="set-x" aria-hidden="true">×</span>
+              <div class="stepper stepper-r" data-field="r">
+                <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps">−</button>
+                <input type="number" class="set-r" inputmode="numeric" step="1" min="0" max="999" placeholder="reps" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
+                <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps">+</button>
+              </div>
+            </div>
+            <div class="set-meta-line">
+              <label class="set-meta-label">RPE
+                <input type="number" class="set-rpe" inputmode="decimal" step="0.5" min="1" max="10" placeholder="—" value="${s.rpe === "" || s.rpe == null ? "" : escapeHtml(String(s.rpe))}" aria-label="RPE set ${si + 1}" title="Optional RPE" />
+              </label>
+              <label class="set-hard" title="Hard working set"><input type="checkbox" class="set-hard-cb" ${s.hard !== false ? "checked" : ""} /> Hard</label>
+            </div>
           </div>
-          <span class="set-x">×</span>
-          <div class="stepper" data-field="r">
-            <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps">−</button>
-            <input type="number" class="set-r" inputmode="numeric" step="1" min="0" placeholder="reps" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
-            <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps">+</button>
-          </div>
-          <input type="number" class="set-rpe" inputmode="decimal" step="0.5" min="1" max="10" placeholder="RPE" value="${s.rpe === "" || s.rpe == null ? "" : escapeHtml(String(s.rpe))}" aria-label="RPE set ${si + 1}" title="Optional RPE" />
-          <label class="set-hard" title="Hard working set"><input type="checkbox" class="set-hard-cb" ${s.hard !== false ? "checked" : ""} /> Hard</label>
         </div>`
         )
         .join("");
