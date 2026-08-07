@@ -59,29 +59,34 @@
 
   <div class="app">
     <header class="topbar">
-      <div class="brand-row">
-        <div class="brand">
-          <img class="brand-mark" src="icons/logo-mark.png" width="48" height="48" alt="Iron Ledger" />
-          <div>
-            <div class="brand-name">Iron Ledger</div>
-            <div class="brand-sub" id="greeting">Strength training · MED</div>
-          </div>
+      <div class="cmd-bar">
+        <div class="cmd-mark" aria-hidden="true">IL</div>
+        <div class="cmd-id">
+          <div class="brand-name">Iron Ledger</div>
+          <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
         </div>
-        <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">☾</button>
+        <div class="cmd-meta">
+          <span class="app-version" id="app-version">v19</span>
+          <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">◐</button>
+        </div>
       </div>
+      <div class="cmd-stripe" aria-hidden="true"></div>
     </header>
 
     <main>
       <!-- TODAY -->
       <section id="view-today" class="view active">
         <div class="status-bar">
-          <span><span class="chip" id="stage-chip">Guided</span></span>
-          <span class="app-version" id="app-version">v18</span>
+          <span class="chip" id="stage-chip">Guided</span>
+          <span class="status-tag">TODAY</span>
         </div>
         <div class="hero" id="today-hero"></div>
         <div id="stack-checkin" hidden></div>
         <div class="card coach-card" id="coach-card">
-          <h2 id="coach-headline">Coach</h2>
+          <div class="panel-head">
+            <span class="panel-code">01</span>
+            <h2 id="coach-headline">Coach</h2>
+          </div>
           <p class="coach-one-liner" id="coach-mission"></p>
           <details class="fold">
             <summary class="fold-sum">More coach tips</summary>
@@ -94,14 +99,20 @@
             </div>
           </details>
         </div>
-        <div class="card" id="today-session-card">
-          <h2 id="today-session-title">Session</h2>
+        <div class="card session-card" id="today-session-card">
+          <div class="panel-head">
+            <span class="panel-code">02</span>
+            <h2 id="today-session-title">Session</h2>
+          </div>
           <div id="today-rationale" class="session-why-wrap" hidden></div>
           <ul class="ex-list" id="today-exercises"></ul>
           <div class="btn-row" id="today-actions"></div>
         </div>
         <div class="card">
-          <h2>Upcoming</h2>
+          <div class="panel-head">
+            <span class="panel-code">03</span>
+            <h2>Upcoming</h2>
+          </div>
           <div id="upcoming-list"></div>
         </div>
       </section>
@@ -387,7 +398,7 @@
           <div class="btn-row" style="margin-top:0.5rem">
             <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
           </div>
-          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v18 · field order UI · set logs + backups</p>
+          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v19 · field ops UI · set logs + backups</p>
         </div>
       </section>
     </main>
@@ -411,11 +422,11 @@
 
   <nav class="bottom-nav" aria-label="Main">
     <div class="bottom-nav-inner">
-      <button type="button" class="nav-btn active" data-view="today"><span class="nav-ico">◉</span>Today</button>
-      <button type="button" class="nav-btn" data-view="plan"><span class="nav-ico">▦</span>Plan</button>
-      <button type="button" class="nav-btn" data-view="coverage"><span class="nav-ico">▤</span>Cover</button>
-      <button type="button" class="nav-btn" data-view="supps"><span class="nav-ico">◈</span>Supps</button>
-      <button type="button" class="nav-btn" data-view="settings"><span class="nav-ico">⚙</span>Settings</button>
+      <button type="button" class="nav-btn active" data-view="today"><span class="nav-idx">01</span><span class="nav-label">Today</span></button>
+      <button type="button" class="nav-btn" data-view="plan"><span class="nav-idx">02</span><span class="nav-label">Plan</span></button>
+      <button type="button" class="nav-btn" data-view="coverage"><span class="nav-idx">03</span><span class="nav-label">Cover</span></button>
+      <button type="button" class="nav-btn" data-view="supps"><span class="nav-idx">04</span><span class="nav-label">Supps</span></button>
+      <button type="button" class="nav-btn" data-view="settings"><span class="nav-idx">05</span><span class="nav-label">Setup</span></button>
     </div>
   </nav>
 

@@ -69,7 +69,7 @@ import {
   buildCoverInsights,
 } from "./logging.js";
 
-const APP_VERSION = "18";
+const APP_VERSION = "19";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -1594,7 +1594,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · field order UI · set logs + backups`;
+    verNote.textContent = `v${APP_VERSION} · field ops UI · set logs + backups`;
   }
 
   const box = document.getElementById("exclude-list");
