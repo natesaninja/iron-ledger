@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c0e0b" />
+  <meta name="description" content="Iron Ledger — minimum effective dose strength training planner for commercial gyms" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Iron Ledger" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+  <title>Iron Ledger</title>
+</head>
+<body>
+  <!-- Invite gate (disabled in config; kept for optional future pilot) -->
+  <div class="invite-gate" id="invite-gate" hidden>
+    <div class="invite-card">
+      <img class="invite-logo" src="icons/logo-mark.png" width="64" height="64" alt="" />
+      <div class="onboard-kicker">Iron Ledger</div>
+      <h1 class="onboard-title">Invite only</h1>
+      <p class="hint">
+        <strong>Easiest:</strong> open the invite <em>link</em> you were texted — it unlocks automatically.
+      </p>
+      <p class="hint" style="margin-top:0.5rem">
+        Or type a short code (example: <code>crew1</code>) if you only got a code.
+      </p>
+      <div class="field" style="margin-top:1rem">
+        <label for="invite-code">Invite code</label>
+        <input type="text" id="invite-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="crew1" inputmode="text" />
+      </div>
+      <p class="dim" id="invite-error" hidden style="color:var(--danger);margin:0.35rem 0 0"></p>
+      <div class="btn-row" style="margin-top:1rem">
+        <button type="button" class="primary-btn full" id="invite-unlock">Open app</button>
+      </div>
+      <p class="dim" style="margin-top:1rem;text-align:center">
+        After unlock: Safari → Share → <strong>Add to Home Screen</strong>
+      </p>
+    </div>
+  </div>
+
+  <!-- First-run / share-friendly onboarding -->
+  <div class="onboard-overlay" id="onboard" hidden>
+    <div class="onboard-card">
+      <div class="onboard-kicker">Iron Ledger</div>
+      <h1 class="onboard-title" id="onboard-title">Minimum effective dose</h1>
+      <div id="onboard-body"></div>
+      <div class="onboard-nav">
+        <button type="button" class="ghost-btn" id="onboard-back" hidden>Back</button>
+        <button type="button" class="primary-btn" id="onboard-next">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="cmd-bar">
+        <div class="cmd-mark" aria-hidden="true">IL</div>
+        <div class="cmd-id">
+          <div class="brand-name">Iron Ledger</div>
+          <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
+        </div>
+        <div class="cmd-meta">
+          <span class="app-version" id="app-version">v19</span>
+          <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">◐</button>
+        </div>
+      </div>
+      <div class="cmd-stripe" aria-hidden="true"></div>
+    </header>
+
+    <main>
+      <!-- TODAY -->
+      <section id="view-today" class="view active">
+        <div class="status-bar">
+          <span class="chip" id="stage-chip">Guided</span>
+          <span class="status-tag">TODAY</span>
+        </div>
+        <div class="hero" id="today-hero"></div>
+        <div id="stack-checkin" hidden></div>
+        <div class="card coach-card" id="coach-card">
+          <div class="panel-head">
+            <span class="panel-code">01</span>
+            <h2 id="coach-headline">Coach</h2>
+          </div>
+          <p class="coach-one-liner" id="coach-mission"></p>
+          <details class="fold">
+            <summary class="fold-sum">More coach tips</summary>
+            <div class="fold-body">
+              <p class="dim" id="coach-dose-line"></p>
+              <div class="sup-science" id="coach-science"></div>
+              <ol class="coach-steps" id="coach-steps"></ol>
+              <p class="dim" id="coach-progress"></p>
+              <p class="hint" id="coach-unlock"></p>
+            </div>
+          </details>
+        </div>
+        <div class="card session-card" id="today-session-card">
+          <div class="panel-head">
+            <span class="panel-code">02</span>
+            <h2 id="today-session-title">Session</h2>
+          </div>
+          <div id="today-rationale" class="session-why-wrap" hidden></div>
+          <ul class="ex-list" id="today-exercises"></ul>
+          <div class="btn-row" id="today-actions"></div>
+        </div>
+        <div class="card">
+          <div class="panel-head">
+            <span class="panel-code">03</span>
+            <h2>Upcoming</h2>
+          </div>
+          <div id="upcoming-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAN / CALENDAR -->
+      <section id="view-plan" class="view">
+        <div class="card">
+          <div class="cal-head">
+            <button type="button" class="icon-btn" id="cal-prev" aria-label="Previous month">‹</button>
+            <strong id="cal-label">Month</strong>
+            <button type="button" class="icon-btn" id="cal-next" aria-label="Next month">›</button>
+          </div>
+          <div class="cal-grid" id="cal-dows"></div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <div class="legend">
+            <span><i style="background:var(--train)"></i>Train</span>
+            <span><i style="background:var(--danger)"></i>Rest</span>
+            <span><i style="background:var(--warn)"></i>Easy</span>
+            <span><i style="background:var(--border)"></i>Off</span>
+          </div>
+          <details class="fold" style="margin-top:0.65rem">
+            <summary class="fold-sum">How to use the calendar</summary>
+            <div class="fold-body">
+              <p class="hint" style="margin:0">
+                Tap a day: <strong>Train</strong> → <strong>Rest</strong> → <strong>Easy</strong> → clear.
+              </p>
+            </div>
+          </details>
+          <div class="btn-row">
+            <button type="button" class="primary-btn" id="rebuild-plan">Rebuild plan</button>
+            <button type="button" class="ghost-btn" id="seed-august">Load sample</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Sessions this month</h2>
+          <div id="plan-session-list"></div>
+        </div>
+      </section>
+
+      <!-- COVERAGE -->
+      <section id="view-coverage" class="view">
+        <div id="cover-insights" hidden></div>
+        <div class="card">
+          <h2>Coverage</h2>
+          <p class="hint" id="coverage-meta"></p>
+          <div id="coverage-bars"></div>
+          <details class="fold" style="margin-top:0.65rem">
+            <summary class="fold-sum">How to read the bars</summary>
+            <div class="fold-body">
+              <p class="dim cov-legend" style="margin:0">
+                Top = <strong>planned</strong> · Bottom = <strong>logged hard sets</strong>.
+                Aim ~70%+ on main muscles — not 150% on everything.
+              </p>
+            </div>
+          </details>
+        </div>
+        <div class="card">
+          <h2>History</h2>
+          <div id="history-list"></div>
+        </div>
+        <div class="card">
+          <h2>PR board</h2>
+          <div id="pr-board"></div>
+        </div>
+        <details class="card fold fold-card">
+          <summary class="fold-sum fold-card-sum">Learn: MED &amp; recovery</summary>
+          <div class="fold-body">
+            <h3 class="fold-h3">Why MED volume</h3>
+            <p class="hint">
+              Planned bars = what the plan assigned. Logged bars = hard sets you entered.
+              Chasing max volume usually steals recovery.
+            </p>
+            <h3 class="fold-h3">MED principles</h3>
+            <div id="med-principles"></div>
+            <h3 class="fold-h3">Recovery</h3>
+            <p class="hint">
+              Hard sets create fatigue for ~2–3 days (legs longer).
+              On rest days, rest — rebuild the plan if you skip a train day.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- SUPPLEMENTS -->
+      <section id="view-supps" class="view">
+        <div class="card">
+          <h2>Supplements</h2>
+          <p class="dim" style="margin:0 0 0.65rem">Not medical advice · food &amp; sleep first</p>
+          <div class="field">
+            <label for="supp-search">Search</label>
+            <input
+              type="search"
+              id="supp-search"
+              placeholder="creatine, sleep, strength…"
+              autocomplete="off"
+              enterkeyhint="search"
+            />
+          </div>
+          <div class="supp-filters" id="supp-filters" role="toolbar" aria-label="Filter supplements">
+            <button type="button" class="supp-filter-btn active" data-filter="all">All</button>
+            <button type="button" class="supp-filter-btn" data-filter="stack">My stack</button>
+            <button type="button" class="supp-filter-btn" data-filter="core">Core</button>
+            <button type="button" class="supp-filter-btn" data-filter="optional">Optional</button>
+            <button type="button" class="supp-filter-btn" data-filter="conditional">If needed</button>
+            <button type="button" class="supp-filter-btn" data-filter="skip">Skip</button>
+          </div>
+          <p class="dim" id="supp-count" style="margin:0.5rem 0 0"></p>
+          <div id="supp-list"></div>
+        </div>
+        <details class="card fold fold-card">
+          <summary class="fold-sum fold-card-sum">Learn: grades &amp; what we skip</summary>
+          <div class="fold-body">
+            <p class="hint">
+              <strong>Strong / moderate</strong> = research mostly supports it for training.
+              <strong>Mixed</strong> = depends.
+              <strong>Weak</strong> = don’t build a stack on it.
+            </p>
+            <p class="hint">
+              We deprioritize fat burners, “test boosters,” and kitchen-sink pre-workouts.
+              Creatine + protein + sleep usually win.
+            </p>
+            <p class="hint">
+              <strong>MacroLedger</strong> (diet sibling): log the burn after a session.
+              <a href="https://natesaninja.github.io/macroledger/" style="color:var(--ember)">Open MacroLedger</a>
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view">
+        <div class="card">
+          <h2>Appearance</h2>
+          <div class="field">
+            <label for="set-theme">Theme</label>
+            <select id="set-theme">
+              <option value="midnight">Field dark (default)</option>
+              <option value="light">Field day</option>
+              <option value="system">System</option>
+            </select>
+          </div>
+          <p class="hint">Tactical olive / charcoal. Toggle anytime with ☾ / ☀.</p>
+        </div>
+        <div class="card">
+          <h2>Default training dose</h2>
+          <p class="hint">
+            <strong>MED</strong> = minimum to progress · <strong>OED</strong> = optimum when you feel strong ·
+            <strong>Low</strong> = rough day. Override any day on Today if energy changes (even mid-session).
+          </p>
+          <div class="field">
+            <label for="set-default-dose">Default for new sessions</label>
+            <select id="set-default-dose">
+              <option value="med">MED — minimum effective dose</option>
+              <option value="oed">OED — optimum effective dose</option>
+              <option value="rough">Low — rough / recovery day</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Coaching path</h2>
+          <p class="hint" id="coach-stage-detail">
+            Start <strong>Guided</strong> (we decide). After enough completed sessions you unlock swaps, then full Custom — when you’re back to choosing what works.
+          </p>
+          <div class="field">
+            <label for="set-coach">Guidance mode</label>
+            <select id="set-coach">
+              <option value="auto">Auto unlock by completed sessions (recommended)</option>
+              <option value="guided">Stay Guided (max coaching)</option>
+              <option value="building">Building (swaps allowed)</option>
+              <option value="custom">Custom now (I’m ready)</option>
+            </select>
+          </div>
+          <p class="dim" id="sessions-done-label">0 sessions completed</p>
+        </div>
+        <div class="card">
+          <h2>Training settings</h2>
+          <div class="field">
+            <label for="set-name">Your name (optional)</label>
+            <input type="text" id="set-name" maxlength="40" placeholder="Shown under the logo" />
+          </div>
+          <div class="field">
+            <label for="set-minutes">Session minutes</label>
+            <input type="number" id="set-minutes" min="30" max="90" step="5" />
+          </div>
+          <div class="field">
+            <label for="set-timebox">Time-box (hard cap)</label>
+            <select id="set-timebox">
+              <option value="0">Off — use session minutes</option>
+              <option value="30">30 min — compounds first</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="set-bw">Bodyweight (kg, optional)</label>
+            <input type="number" id="set-bw" min="30" max="250" step="0.5" placeholder="For protein hint" />
+          </div>
+          <label class="check-inline">
+            <input type="checkbox" id="set-warmups" checked /> Show warm-up ladder under lifts
+          </label>
+          <label class="check-inline">
+            <input type="checkbox" id="set-quality-gates" checked /> Unlock coach stages by quality logs
+          </label>
+          <div id="advanced-settings">
+            <div class="field">
+              <label for="set-split">Split preference</label>
+              <select id="set-split">
+                <option value="auto">Auto (from days/week)</option>
+                <option value="full_body">Full body</option>
+                <option value="upper_lower">Upper / Lower</option>
+                <option value="ppl">Push / Pull / Legs</option>
+                <option value="bro">Bro split</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="set-med">MED multiplier (0.8 easy · 1.0 default · 1.2 more)</label>
+              <input type="number" id="set-med" min="0.5" max="1.5" step="0.05" />
+            </div>
+            <div class="field">
+              <label for="set-rec">Recovery multiplier (higher = assume slower recovery)</label>
+              <input type="number" id="set-rec" min="0.8" max="1.5" step="0.05" />
+            </div>
+          </div>
+          <p class="hint" id="advanced-locked-hint" hidden>
+            Split &amp; volume stay on Full-Body MED while you’re Guided/Building so effort isn’t wasted. Unlock via completed sessions or set Custom above.
+          </p>
+        </div>
+        <div class="card" id="exclude-card">
+          <h2>Exclude exercises</h2>
+          <p class="hint">Hidden from the planner (e.g. walking lunges). Unlocks in Building/Custom.</p>
+          <div class="check-list" id="exclude-list"></div>
+        </div>
+        <div class="card">
+          <h2>Deload week</h2>
+          <p class="hint" id="deload-status">No deload scheduled</p>
+          <p class="hint">Forces <strong>Low (Rough)</strong> dose on train days for 7 days. Calendar days stay; volume drops.</p>
+          <div class="btn-row">
+            <button type="button" class="primary-btn" id="btn-deload">Start 7-day deload</button>
+            <button type="button" class="ghost-btn" id="btn-deload-clear">Clear deload</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Install &amp; updates</h2>
+          <p class="hint">
+            Same model as MacroLedger: when you’re online the app updates itself.
+            <strong>Never delete the Home Screen icon</strong> to “update” — on iPhone that can wipe local data.
+          </p>
+          <div class="btn-row">
+            <button type="button" class="primary-btn" id="btn-check-update">Refresh app</button>
+          </div>
+          <p class="dim" id="live-url-label" style="margin-top:0.65rem"></p>
+        </div>
+        <div class="card">
+          <h2>Share (one tap)</h2>
+          <p class="hint" id="share-url-hint">
+            Each button copies a <strong>personal invite link</strong>. They open it → app unlocks → done.
+            No separate code needed if they use the link.
+          </p>
+          <div id="invite-share-list" class="invite-share-list"></div>
+          <div class="btn-row" style="margin-top:0.75rem">
+            <button type="button" class="primary-btn" id="share-native-btn">Share coworker 1…</button>
+            <button type="button" class="ghost-btn" id="copy-link-btn">Copy base link</button>
+            <button type="button" class="ghost-btn" id="replay-onboard">Show intro again</button>
+          </div>
+          <p class="dim" style="margin-top:0.65rem">
+            Tip: text the link in Messages. On iPhone they should open it in <strong>Safari</strong>, then Add to Home Screen.
+          </p>
+        </div>
+        <div class="card">
+          <h2>Data</h2>
+          <p class="hint" id="backup-age">Never backed up</p>
+          <p class="hint">
+            Data stays on this device. Export or share a backup before phone swaps, OS updates, or travel.
+            Import on the new device from Settings.
+          </p>
+          <div class="btn-row">
+            <button type="button" class="primary-btn" id="save-settings">Save & rebuild</button>
+            <button type="button" class="ghost-btn" id="export-btn">Export backup</button>
+            <button type="button" class="ghost-btn" id="share-backup-btn">Share backup…</button>
+            <button type="button" class="ghost-btn" id="import-btn">Import backup</button>
+            <input type="file" id="import-file" accept="application/json,.json" hidden />
+          </div>
+          <div class="btn-row" style="margin-top:0.5rem">
+            <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
+          </div>
+          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v19 · field ops UI · set logs + backups</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="rest-timer-bar" id="rest-timer-bar" hidden></div>
+
+  <div class="modal-backdrop" id="session-summary-modal" hidden>
+    <div class="modal summary-modal" role="dialog" aria-labelledby="session-summary-title">
+      <div class="modal-header">
+        <h2 id="session-summary-title">Session complete</h2>
+        <button type="button" class="icon-btn" id="session-summary-close" aria-label="Close">×</button>
+      </div>
+      <div id="session-summary-body"></div>
+      <div class="btn-row" style="margin-top:1rem">
+        <button type="button" class="primary-btn" id="session-summary-macro">Log burn in MacroLedger</button>
+        <button type="button" class="ghost-btn" id="session-summary-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Main">
+    <div class="bottom-nav-inner">
+      <button type="button" class="nav-btn active" data-view="today"><span class="nav-idx">01</span><span class="nav-label">Today</span></button>
+      <button type="button" class="nav-btn" data-view="plan"><span class="nav-idx">02</span><span class="nav-label">Plan</span></button>
+      <button type="button" class="nav-btn" data-view="coverage"><span class="nav-idx">03</span><span class="nav-label">Cover</span></button>
+      <button type="button" class="nav-btn" data-view="supps"><span class="nav-idx">04</span><span class="nav-label">Supps</span></button>
+      <button type="button" class="nav-btn" data-view="settings"><span class="nav-idx">05</span><span class="nav-label">Setup</span></button>
+    </div>
+  </nav>
+
+  <div class="modal-backdrop" id="swap-modal" hidden>
+    <div class="modal" role="dialog" aria-labelledby="swap-title">
+      <div class="modal-header">
+        <h2 id="swap-title">Swap exercise</h2>
+        <button type="button" class="icon-btn" id="swap-close" aria-label="Close">×</button>
+      </div>
+      <div id="swap-options"></div>
+      <button type="button" class="ghost-btn full" id="swap-exclude" style="margin-top:0.5rem">Never show this exercise</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
