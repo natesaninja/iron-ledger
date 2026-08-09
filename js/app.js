@@ -68,6 +68,12 @@ import {
   buildSessionSummary,
   buildCoverInsights,
 } from "./logging.js";
+import {
+  EQUIPMENT_KEYS,
+  EQUIPMENT_LABELS,
+  applyEquipmentPreset,
+  fullEquipment,
+} from "./equipment.js";
 
 const APP_VERSION = "19.1";
 
@@ -1605,6 +1611,8 @@ function renderSettingsForm() {
     verNote.textContent = `v${APP_VERSION} · field ops UI · set logs + backups`;
   }
 
+  renderEquipmentSettings();
+
   const box = document.getElementById("exclude-list");
   const excluded = new Set(s.excludedExercises || []);
   box.innerHTML = EXERCISES.map(
@@ -1614,6 +1622,63 @@ function renderSettingsForm() {
       ${escapeHtml(ex.name)}
     </label>`
   ).join("");
+}
+
+/** Populate equipment checklist + preset highlight from settings.equipment */
+function renderEquipmentSettings() {
+  const s = state.settings;
+  const list = document.getElementById("equipment-list");
+  const card = document.getElementById("equipment-card");
+  if (!list) return;
+
+  const eq = s.equipment;
+  const isUnrestricted = eq == null;
+  list.innerHTML = EQUIPMENT_KEYS.map((k) => {
+    const checked = isUnrestricted || eq[k] === true;
+    return `<label>
+      <input type="checkbox" data-eq-key="${k}" ${checked ? "checked" : ""} />
+      ${escapeHtml(EQUIPMENT_LABELS[k] || k)}
+    </label>`;
+  }).join("");
+
+  const preset =
+    s.equipmentPreset ||
+    (isUnrestricted ? "gym" : "custom");
+  if (card) card.dataset.equipmentPreset = preset;
+  document.querySelectorAll("#equipment-presets [data-eq-preset]").forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.eqPreset === preset);
+  });
+}
+
+/** Apply a preset to the form only (persists on Save & rebuild). */
+function applyEquipmentPresetToForm(id) {
+  const flags = id === "gym" ? fullEquipment() : applyEquipmentPreset(id);
+  EQUIPMENT_KEYS.forEach((k) => {
+    const input = document.querySelector(`#equipment-list input[data-eq-key="${k}"]`);
+    if (input) input.checked = flags[k] === true;
+  });
+  const card = document.getElementById("equipment-card");
+  if (card) card.dataset.equipmentPreset = id;
+  document.querySelectorAll("#equipment-presets [data-eq-preset]").forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.eqPreset === id);
+  });
+}
+
+function readEquipmentFromForm() {
+  const card = document.getElementById("equipment-card");
+  const preset = card?.dataset.equipmentPreset || "custom";
+  if (preset === "gym") {
+    return { equipment: null, equipmentPreset: "gym" };
+  }
+  if (preset === "home_barbell" || preset === "db_only" || preset === "minimal") {
+    return { equipment: applyEquipmentPreset(preset), equipmentPreset: preset };
+  }
+  const equipment = {};
+  for (const k of EQUIPMENT_KEYS) {
+    const input = document.querySelector(`#equipment-list input[data-eq-key="${k}"]`);
+    equipment[k] = !!input?.checked;
+  }
+  return { equipment, equipmentPreset: "custom" };
 }
 
 function saveSettingsFromForm() {
@@ -1650,6 +1715,11 @@ function saveSettingsFromForm() {
     const checks = [...document.querySelectorAll("#exclude-list input:checked")];
     state.settings.excludedExercises = checks.map((c) => c.value);
   }
+
+  const eqSave = readEquipmentFromForm();
+  state.settings.equipment = eqSave.equipment;
+  state.settings.equipmentPreset = eqSave.equipmentPreset;
+
   persist();
   rebuild();
   updateGreeting();
@@ -1900,6 +1970,20 @@ function initEvents() {
     applyAugustSeed(true);
   };
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
+  document.getElementById("equipment-presets")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-eq-preset]");
+    if (!btn) return;
+    applyEquipmentPresetToForm(btn.dataset.eqPreset);
+  });
+  document.getElementById("equipment-list")?.addEventListener("change", (e) => {
+    if (e.target.matches("input[data-eq-key]")) {
+      const card = document.getElementById("equipment-card");
+      if (card) card.dataset.equipmentPreset = "custom";
+      document.querySelectorAll("#equipment-presets [data-eq-preset]").forEach((btn) => {
+        btn.classList.remove("is-selected");
+      });
+    }
+  });
   document.getElementById("btn-deload")?.addEventListener("click", () => {
     if (!confirm("Start a 7-day deload? Train days will use Low (Rough) dose until it ends.")) return;
     startDeloadWeek();

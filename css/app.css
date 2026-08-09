@@ -446,6 +446,11 @@ main {
   border-color: var(--ember);
   color: var(--ember);
 }
+.ghost-btn.is-selected {
+  border-color: var(--ember);
+  color: var(--ember);
+  background: var(--bg-hover);
+}
 
 .danger-btn {
   color: var(--danger);
@@ -1578,6 +1583,9 @@ button.tiny {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-inset);
+}
+#equipment-list {
+  margin-top: 0.65rem;
 }
 .check-list label {
   display: flex;
