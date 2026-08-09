@@ -33,6 +33,13 @@ export const CUSTOM_TARGET_PRESETS = {
   arms_shoulders: { side_delts: 1.25, rear_delts: 1.15, biceps: 1.25, triceps: 1.25 },
 };
 
+/** Quantize custom target multiplier to 0.05 steps (presets use 1.15 / 1.25). */
+export function quantizeCustomTarget(v) {
+  const n = +v;
+  if (!Number.isFinite(n)) return 1;
+  return Math.round(Math.min(1.5, Math.max(0.5, n)) * 20) / 20;
+}
+
 export const FOCUS = {
   push: ["chest", "front_delts", "side_delts", "triceps"],
   pull: ["lats", "upper_back", "rear_delts", "biceps"],

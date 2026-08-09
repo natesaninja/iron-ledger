@@ -11,6 +11,7 @@ import {
   MED_PRINCIPLES,
   DOSE_PROFILES,
   CUSTOM_TARGET_PRESETS,
+  quantizeCustomTarget,
 } from "./data.js";
 import {
   buildPlan,
@@ -1589,14 +1590,13 @@ function renderCustomTargetControls(targets) {
   box.innerHTML = customTargetMuscleList()
     .map((m) => {
       const raw = map[m.id];
-      const v = raw != null ? Math.min(1.5, Math.max(0.5, +raw || 1)) : 1;
-      const shown = Math.round(v * 10) / 10;
+      const shown = quantizeCustomTarget(raw != null ? raw : 1);
       return `
       <div class="custom-target-row">
         <label for="ct-${m.id}">${escapeHtml(m.name)}</label>
         <input type="range" id="ct-${m.id}" data-ct-muscle="${m.id}"
-          min="0.5" max="1.5" step="0.1" value="${shown}" />
-        <span class="custom-target-val" data-ct-val="${m.id}">${shown.toFixed(1)}×</span>
+          min="0.5" max="1.5" step="0.05" value="${shown}" />
+        <span class="custom-target-val" data-ct-val="${m.id}">${shown.toFixed(2)}×</span>
       </div>`;
     })
     .join("");
@@ -1638,7 +1638,7 @@ function applyCustomPresetToForm(id) {
 function readCustomTargetsFromForm() {
   const map = {};
   document.querySelectorAll("#custom-target-muscles [data-ct-muscle]").forEach((input) => {
-    const v = Math.round((+input.value || 1) * 10) / 10;
+    const v = quantizeCustomTarget(+input.value || 1);
     if (v !== 1) map[input.dataset.ctMuscle] = v;
   });
   return Object.keys(map).length ? map : null;
@@ -2097,9 +2097,9 @@ function initEvents() {
   document.getElementById("custom-target-muscles")?.addEventListener("input", (e) => {
     const input = e.target.closest("[data-ct-muscle]");
     if (!input) return;
-    const v = Math.round((+input.value || 1) * 10) / 10;
+    const v = quantizeCustomTarget(+input.value || 1);
     const lbl = document.querySelector(`[data-ct-val="${input.dataset.ctMuscle}"]`);
-    if (lbl) lbl.textContent = `${v.toFixed(1)}×`;
+    if (lbl) lbl.textContent = `${v.toFixed(2)}×`;
     highlightCustomPreset(null);
   });
   document.getElementById("equipment-presets")?.addEventListener("click", (e) => {

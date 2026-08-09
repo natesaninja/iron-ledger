@@ -1,5 +1,5 @@
 import { buildPlan } from "../js/planner.js";
-import { DEFAULT_SETTINGS } from "../js/data.js";
+import { CUSTOM_TARGET_PRESETS, DEFAULT_SETTINGS, quantizeCustomTarget } from "../js/data.js";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -26,5 +26,15 @@ describe("custom targets", () => {
       equipment: null,
     });
     assert.equal(stale.targets.chest, base.targets.chest);
+  });
+
+  it("quantizeCustomTarget preserves push_focus 0.05-step values", () => {
+    for (const [muscle, mult] of Object.entries(CUSTOM_TARGET_PRESETS.push_focus)) {
+      assert.equal(quantizeCustomTarget(mult), mult, muscle);
+    }
+    // Old 0.1 rounding would corrupt these
+    assert.equal(quantizeCustomTarget(1.25), 1.25);
+    assert.equal(quantizeCustomTarget(1.15), 1.15);
+    assert.notEqual(Math.round(1.25 * 10) / 10, 1.25);
   });
 });
