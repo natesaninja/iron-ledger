@@ -2,6 +2,7 @@
  * Coverage + recovery + session builder (browser port of strength-med-planner)
  */
 import { MUSCLES, PRIORITY, FOCUS, EXERCISES } from "./data.js";
+import { isExerciseAvailable } from "./equipment.js";
 
 const MUSCLE_MAP = Object.fromEntries(MUSCLES.map((m) => [m.id, m]));
 
@@ -238,6 +239,7 @@ function primaryCounts(chosen) {
 
 function scoreEx(ex, focus, debtMap, recovery, atIso, usedIds, usedPatterns, counts, settings, patternFilter, roleFilter) {
   if (usedIds.has(ex.id) || (settings.excludedExercises || []).includes(ex.id)) return -1e9;
+  if (!isExerciseAvailable(ex, settings.equipment)) return -1e9;
   if (patternFilter && !patternFilter.includes(ex.pattern)) return -1e9;
   if (roleFilter && !roleFilter.includes(ex.role)) return -1e9;
   if (!ex.primary.some((m) => focus.has(m))) return -1e9;
@@ -414,6 +416,7 @@ function buildSession(iso, label, focusList, debts, recovery, settings, rational
     if (usedIds.has(eid) || (settings.excludedExercises || []).includes(eid)) continue;
     const ex = EXERCISES.find((e) => e.id === eid);
     if (!ex) continue;
+    if (!isExerciseAvailable(ex, settings.equipment)) continue;
     if (!ex.primary.some((m) => focus.has(m)) && !label.includes("Full Body")) continue;
     const d0 = debtMap[ex.primary[0]];
     if (d0 && d0.debt <= 0 && d0.score < 0.5) continue;
@@ -540,6 +543,7 @@ export function substitutesFor(exerciseId, settings) {
     (e) =>
       e.id !== exerciseId &&
       !excluded.has(e.id) &&
+      isExerciseAvailable(e, settings.equipment) &&
       e.pattern === ex.pattern &&
       e.primary.some((m) => ex.primary.includes(m))
   ).map((e) => {
