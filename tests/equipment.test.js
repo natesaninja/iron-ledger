@@ -39,4 +39,14 @@ describe("presets", () => {
     assert.equal(eq.rack, true);
     assert.equal(eq.machines, false);
   });
+
+  it("minimal includes dumbbells + flat bench + pull-up + bands", () => {
+    const eq = applyEquipmentPreset("minimal");
+    assert.equal(eq.pullUpBar, true);
+    assert.equal(eq.bands, true);
+    assert.equal(eq.dumbbells, true);
+    assert.equal(eq.flatBench, true);
+    assert.equal(eq.barbell, false);
+    assert.equal(eq.machines, false);
+  });
 });

@@ -63,10 +63,13 @@ export function applyEquipmentPreset(id) {
     };
   }
   if (id === "minimal") {
+    // Usable bodyweight + light free-weight library (not band/bar-only)
     return {
       ...emptyEquipment(),
       pullUpBar: true,
       bands: true,
+      dumbbells: true,
+      flatBench: true,
     };
   }
   return fullEquipment();

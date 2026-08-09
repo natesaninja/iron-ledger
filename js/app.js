@@ -388,13 +388,32 @@ function trainingModeLabel(mode) {
   return TRAINING_MODE_LABELS[mode] || TRAINING_MODE_LABELS.med;
 }
 
+/** Short chip label for a program id (from catalog). */
+function programShortName(programId) {
+  if (!programId) return null;
+  const SHORT = {
+    bbb_531: "BBB",
+    ppl_hyper: "PPL",
+    ul_hyper: "UL",
+    bro_classic: "Bro",
+  };
+  if (SHORT[programId]) return SHORT[programId];
+  const prog = getProgram(programId);
+  if (!prog?.name) return null;
+  return prog.name.split(/[/(·]/)[0].trim().slice(0, 12) || null;
+}
+
 function modeChipClass(mode) {
   return "chip " + (mode === "custom" ? "ember" : mode === "program" ? "train" : "ok");
 }
 
 function renderModeChip() {
   const mode = state.settings?.trainingMode || "med";
-  const label = trainingModeLabel(mode);
+  let label = trainingModeLabel(mode);
+  if (mode === "program") {
+    const short = programShortName(state.settings?.activeProgramId);
+    if (short) label = `Program · ${short}`;
+  }
   const cls = modeChipClass(mode);
   for (const id of ["mode-chip", "plan-mode-chip"]) {
     const chip = document.getElementById(id);
@@ -1930,6 +1949,14 @@ function saveSettingsFromForm() {
   if (progSel) {
     state.settings.activeProgramId = progSel.value || null;
   }
+  // Program mode with empty catalog pick → default first template (avoid silent MED fallback)
+  if (state.settings.trainingMode === "program" && !state.settings.activeProgramId) {
+    const first = listPrograms()[0];
+    if (first) {
+      state.settings.activeProgramId = first.id;
+      if (progSel) progSel.value = first.id;
+    }
+  }
   state.settings.trainingMaxes = readTrainingMaxesFromForm();
   // Always capture custom map from form (ignored by planner unless mode === custom)
   state.settings.customTargets = readCustomTargetsFromForm();
@@ -2326,7 +2353,19 @@ function initEvents() {
   };
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
   document.getElementById("set-training-mode")?.addEventListener("change", (e) => {
-    syncTrainingModePanels(e.target.value);
+    const mode = e.target.value;
+    syncTrainingModePanels(mode);
+    // Selecting Program with no pick → default first catalog program
+    if (mode === "program") {
+      const progSel = document.getElementById("set-active-program");
+      if (progSel && !progSel.value) {
+        const first = listPrograms()[0];
+        if (first) {
+          progSel.value = first.id;
+          syncProgramDetailPanels();
+        }
+      }
+    }
   });
   document.getElementById("set-active-program")?.addEventListener("change", () => {
     syncProgramDetailPanels();

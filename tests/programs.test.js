@@ -121,4 +121,61 @@ describe("buildProgramPlan", () => {
     assert.equal(plan.sessions[0].slotId, "push");
     assert.match(plan.sessions[0].label, /push/i);
   });
+
+  it("schemeNotes omits BBB 5×10 on deload wave", () => {
+    const plan = buildProgramPlan(
+      ["2026-08-03"],
+      {
+        ...DEFAULT_SETTINGS,
+        trainingMode: "program",
+        activeProgramId: "bbb_531",
+        equipment: applyEquipmentPreset("home_barbell"),
+        trainingMaxes: { squat: 315, bench: 225, deadlift: 405, press: 135 },
+        programWeekOffset: 3, // SCHEME_531[3] = deload
+      }
+    );
+    const notes = plan.sessions[0].schemeNotes || "";
+    assert.ok(notes);
+    assert.doesNotMatch(notes, /BBB 5×10/);
+    assert.match(notes, /BBB skipped \(deload\)/i);
+  });
+
+  it("schemeNotes omits BBB 5×10 on rough dose", () => {
+    const plan = buildProgramPlan(
+      ["2026-08-03"],
+      {
+        ...DEFAULT_SETTINGS,
+        trainingMode: "program",
+        activeProgramId: "bbb_531",
+        equipment: applyEquipmentPreset("home_barbell"),
+        trainingMaxes: { squat: 315, bench: 225, deadlift: 405, press: 135 },
+      },
+      {
+        dayDose: { "2026-08-03": "rough" },
+        doseProfiles: {
+          rough: { id: "rough", label: "Rough", sessionMinutes: 40 },
+          med: { id: "med", label: "MED", sessionMinutes: 55 },
+        },
+      }
+    );
+    const notes = plan.sessions[0].schemeNotes || "";
+    assert.ok(notes);
+    assert.doesNotMatch(notes, /BBB 5×10/);
+    assert.match(notes, /BBB skipped \(rough\)/i);
+  });
+
+  it("schemeNotes claims BBB 5×10 when supplemental runs", () => {
+    const plan = buildProgramPlan(
+      ["2026-08-03"],
+      {
+        ...DEFAULT_SETTINGS,
+        trainingMode: "program",
+        activeProgramId: "bbb_531",
+        equipment: applyEquipmentPreset("home_barbell"),
+        trainingMaxes: { squat: 315, bench: 225, deadlift: 405, press: 135 },
+        programWeekOffset: 0,
+      }
+    );
+    assert.match(plan.sessions[0].schemeNotes || "", /BBB 5×10/);
+  });
 });

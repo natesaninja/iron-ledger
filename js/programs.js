@@ -555,6 +555,8 @@ function buildProgramSession(day, slot, program, settings, waveIndex, dose) {
   const isBbbStyle = !!(slot.main || slot.supplemental);
   const workList = slot.work || [];
   const budget = sessionBudget(settings, dose);
+  /** True only when BBB supplemental work was actually added to the session */
+  let bbbSupplementalRan = false;
 
   const tmKey = slot.main?.tmKey || SLOT_TM_KEY[slot.id];
   const tm = tmKey != null ? tms[tmKey] : null;
@@ -622,9 +624,11 @@ function buildProgramSession(day, slot, program, settings, waveIndex, dose) {
         exercises.push(
           makeExEntry(ex, sets, reps, `BBB supplemental 5×10 @ ~${Math.round(bbbPct * 100)}% TM.`)
         );
+        bbbSupplementalRan = true;
       }
-    } else if (slot.supplemental && wave.id === "deload") {
-      notes.push("BBB skipped on deload week");
+    } else if (slot.supplemental && skipBbb) {
+      if (wave.id === "deload") notes.push("BBB skipped on deload week");
+      else if (dose?.id === "rough") notes.push("BBB skipped (rough dose)");
     }
   }
 
@@ -646,11 +650,18 @@ function buildProgramSession(day, slot, program, settings, waveIndex, dose) {
 
   let schemeNotes;
   if (isBbbStyle) {
-    schemeNotes = [
-      `Week wave: ${wave.label}`,
-      `BBB 5×10 @ ${Math.round(bbbPct * 100)}% TM`,
-      tm != null && Number.isFinite(+tm) && +tm > 0 ? `TM ${tm} ${unit}` : "TM not set",
-    ].join(" · ");
+    const parts = [`Week wave: ${wave.label}`];
+    // Only claim BBB 5×10 when supplemental actually ran
+    if (bbbSupplementalRan) {
+      parts.push(`BBB 5×10 @ ${Math.round(bbbPct * 100)}% TM`);
+    } else if (slot.supplemental) {
+      if (wave.id === "deload") parts.push("BBB skipped (deload)");
+      else if (dose?.id === "rough") parts.push("BBB skipped (rough)");
+    }
+    parts.push(
+      tm != null && Number.isFinite(+tm) && +tm > 0 ? `TM ${tm} ${unit}` : "TM not set"
+    );
+    schemeNotes = parts.join(" · ");
   } else {
     schemeNotes = [
       `${slot.label} · hypertrophy (fixed sets/reps)`,

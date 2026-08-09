@@ -183,6 +183,33 @@ describe("store migrate + backup reminder", () => {
     assert.equal(m.backupRemindDays, 7);
   });
 
+  it("v3 → v4 fills trainingMode, equipment, trainingMaxes defaults", () => {
+    const m = migrateState({
+      version: 3,
+      logs: {},
+      trainingDays: ["2026-08-01"],
+      settings: { sessionMinutes: 55, displayName: "Alex" },
+      lastBackupAt: null,
+      backupRemindDays: 7,
+    });
+    assert.equal(m.version, STORE_VERSION);
+    assert.equal(m.settings.trainingMode, "med");
+    assert.equal(m.settings.activeProgramId, null);
+    assert.equal(m.settings.equipment, null);
+    assert.equal(m.settings.equipmentPreset, null);
+    assert.equal(m.settings.customTargets, null);
+    assert.deepEqual(m.settings.trainingMaxes, {
+      squat: null,
+      bench: null,
+      deadlift: null,
+      press: null,
+    });
+    assert.equal(m.settings.bbbSupplementalPct, 0.5);
+    assert.equal(m.settings.programWeekOffset, 0);
+    assert.equal(m.settings.sessionMinutes, 55);
+    assert.equal(m.settings.displayName, "Alex");
+  });
+
   it("needs backup when never exported and has data", () => {
     assert.equal(
       needsBackupReminder({ trainingDays: ["2026-08-01"], lastBackupAt: null, logs: {} }),
