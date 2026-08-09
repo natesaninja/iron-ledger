@@ -712,6 +712,22 @@ main {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.ex-scheme {
+  font-size: 0.72rem;
+  color: var(--ember);
+  margin-top: 0.2rem;
+  line-height: 1.35;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+.session-scheme {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  color: var(--ember);
+  line-height: 1.4;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
 
 .set-log {
   margin-top: 0.5rem;
@@ -1949,6 +1965,25 @@ button.tiny {
 }
 .onboard-nav .primary-btn {
   flex: 1;
+}
+.onboard-choices {
+  flex-wrap: wrap;
+}
+.onboard-program-list {
+  flex-direction: column;
+  align-items: stretch;
+}
+.onboard-program-list .ghost-btn {
+  text-align: left;
+  justify-content: flex-start;
+  white-space: normal;
+  height: auto;
+  min-height: var(--tap);
+  padding: 0.55rem 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
 }
 
 .share-steps {
