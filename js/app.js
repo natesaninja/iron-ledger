@@ -10,6 +10,7 @@ import {
   MUSCLES,
   MED_PRINCIPLES,
   DOSE_PROFILES,
+  CUSTOM_TARGET_PRESETS,
 } from "./data.js";
 import {
   buildPlan,
@@ -360,6 +361,25 @@ function initNav() {
 }
 
 // ---------- render today ----------
+const TRAINING_MODE_LABELS = {
+  med: "MED",
+  program: "Program",
+  custom: "Custom",
+};
+
+function trainingModeLabel(mode) {
+  return TRAINING_MODE_LABELS[mode] || TRAINING_MODE_LABELS.med;
+}
+
+function renderModeChip() {
+  const chip = document.getElementById("mode-chip");
+  if (!chip) return;
+  const mode = state.settings?.trainingMode || "med";
+  chip.textContent = trainingModeLabel(mode);
+  chip.className =
+    "chip " + (mode === "custom" ? "ember" : mode === "program" ? "train" : "ok");
+}
+
 function renderCoachPanel(session) {
   const { n, stage } = getCoach();
   const chip = document.getElementById("stage-chip");
@@ -367,6 +387,7 @@ function renderCoachPanel(session) {
     chip.textContent = `${stage.label} · ${n} done`;
     chip.className = "chip " + (stage.id === "custom" ? "ok" : stage.id === "building" ? "train" : "warn");
   }
+  renderModeChip();
   const ver = document.getElementById("app-version");
   if (ver) ver.textContent = `v${APP_VERSION}`;
 
@@ -1259,9 +1280,10 @@ function renderCoverage() {
     return;
   }
   const under = plan.meta.underCoveredPrimaries || [];
+  const modeLbl = trainingModeLabel(state.settings?.trainingMode || "med");
   meta.textContent = under.length
-    ? `⚠ Under MED (planned) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
-    : `✓ Primaries on planned MED track · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
+    ? `⚠ Under target (${modeLbl}) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
+    : `✓ Primaries on planned track · ${modeLbl} · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
 
   const from = plan.meta?.start;
   const to = plan.meta?.end;
@@ -1547,11 +1569,93 @@ function initSuppsUi() {
 }
 
 // ---------- settings ----------
+/** Muscles editable in custom targets UI (primary + secondary; support stays default). */
+function customTargetMuscleList() {
+  return MUSCLES.filter((m) => m.tier === "primary" || m.tier === "secondary");
+}
+
+function syncTrainingModePanels(mode) {
+  const m = mode || document.getElementById("set-training-mode")?.value || "med";
+  const customCard = document.getElementById("custom-targets-card");
+  const progWrap = document.getElementById("program-select-wrap");
+  if (customCard) customCard.hidden = m !== "custom";
+  if (progWrap) progWrap.hidden = m !== "program";
+}
+
+function renderCustomTargetControls(targets) {
+  const box = document.getElementById("custom-target-muscles");
+  if (!box) return;
+  const map = targets && typeof targets === "object" ? targets : {};
+  box.innerHTML = customTargetMuscleList()
+    .map((m) => {
+      const raw = map[m.id];
+      const v = raw != null ? Math.min(1.5, Math.max(0.5, +raw || 1)) : 1;
+      const shown = Math.round(v * 10) / 10;
+      return `
+      <div class="custom-target-row">
+        <label for="ct-${m.id}">${escapeHtml(m.name)}</label>
+        <input type="range" id="ct-${m.id}" data-ct-muscle="${m.id}"
+          min="0.5" max="1.5" step="0.1" value="${shown}" />
+        <span class="custom-target-val" data-ct-val="${m.id}">${shown.toFixed(1)}×</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function highlightCustomPreset(presetId) {
+  document.querySelectorAll("#custom-target-presets [data-ct-preset]").forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.ctPreset === presetId);
+  });
+}
+
+/** Guess which preset matches the current map (for highlight only). */
+function matchCustomPreset(map) {
+  if (!map || !Object.keys(map).length) return "balanced";
+  for (const [id, preset] of Object.entries(CUSTOM_TARGET_PRESETS)) {
+    if (id === "balanced") continue;
+    const keys = Object.keys(preset);
+    if (
+      keys.length === Object.keys(map).length &&
+      keys.every((k) => map[k] === preset[k])
+    ) {
+      return id;
+    }
+  }
+  return null;
+}
+
+function applyCustomPresetToForm(id) {
+  const preset = CUSTOM_TARGET_PRESETS[id];
+  if (!preset || id === "balanced" || !Object.keys(preset).length) {
+    renderCustomTargetControls(null);
+    highlightCustomPreset("balanced");
+    return;
+  }
+  renderCustomTargetControls(preset);
+  highlightCustomPreset(id);
+}
+
+function readCustomTargetsFromForm() {
+  const map = {};
+  document.querySelectorAll("#custom-target-muscles [data-ct-muscle]").forEach((input) => {
+    const v = Math.round((+input.value || 1) * 10) / 10;
+    if (v !== 1) map[input.dataset.ctMuscle] = v;
+  });
+  return Object.keys(map).length ? map : null;
+}
+
 function renderSettingsForm() {
   const s = state.settings;
   const { n, q, stage, caps } = getCoach();
   const nameEl = document.getElementById("set-name");
   if (nameEl) nameEl.value = s.displayName || "";
+  const modeSel = document.getElementById("set-training-mode");
+  if (modeSel) modeSel.value = s.trainingMode || "med";
+  syncTrainingModePanels(s.trainingMode || "med");
+  renderCustomTargetControls(s.customTargets);
+  highlightCustomPreset(matchCustomPreset(s.customTargets));
+  const progSel = document.getElementById("set-active-program");
+  if (progSel) progSel.value = s.activeProgramId || "";
   document.getElementById("set-minutes").value = s.sessionMinutes;
   document.getElementById("set-split").value = s.splitPreference;
   document.getElementById("set-med").value = s.medMultiplier;
@@ -1715,6 +1819,18 @@ function saveSettingsFromForm() {
     const checks = [...document.querySelectorAll("#exclude-list input:checked")];
     state.settings.excludedExercises = checks.map((c) => c.value);
   }
+
+  const modeSel = document.getElementById("set-training-mode");
+  if (modeSel) {
+    const mode = modeSel.value || "med";
+    state.settings.trainingMode = ["med", "program", "custom"].includes(mode) ? mode : "med";
+  }
+  const progSel = document.getElementById("set-active-program");
+  if (progSel) {
+    state.settings.activeProgramId = progSel.value || null;
+  }
+  // Always capture custom map from form (ignored by planner unless mode === custom)
+  state.settings.customTargets = readCustomTargetsFromForm();
 
   const eqSave = readEquipmentFromForm();
   state.settings.equipment = eqSave.equipment;
@@ -1970,6 +2086,22 @@ function initEvents() {
     applyAugustSeed(true);
   };
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
+  document.getElementById("set-training-mode")?.addEventListener("change", (e) => {
+    syncTrainingModePanels(e.target.value);
+  });
+  document.getElementById("custom-target-presets")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-ct-preset]");
+    if (!btn) return;
+    applyCustomPresetToForm(btn.dataset.ctPreset);
+  });
+  document.getElementById("custom-target-muscles")?.addEventListener("input", (e) => {
+    const input = e.target.closest("[data-ct-muscle]");
+    if (!input) return;
+    const v = Math.round((+input.value || 1) * 10) / 10;
+    const lbl = document.querySelector(`[data-ct-val="${input.dataset.ctMuscle}"]`);
+    if (lbl) lbl.textContent = `${v.toFixed(1)}×`;
+    highlightCustomPreset(null);
+  });
   document.getElementById("equipment-presets")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-eq-preset]");
     if (!btn) return;

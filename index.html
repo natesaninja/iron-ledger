@@ -78,6 +78,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span class="chip" id="stage-chip">Guided</span>
+          <span class="chip" id="mode-chip">MED</span>
           <span class="status-tag">TODAY</span>
         </div>
         <div class="hero" id="today-hero"></div>
@@ -290,6 +291,21 @@
         <div class="card">
           <h2>Training settings</h2>
           <div class="field">
+            <label for="set-training-mode">Training mode</label>
+            <select id="set-training-mode">
+              <option value="med">MED Auto — coverage-driven sessions</option>
+              <option value="program">Programs — fixed templates (BBB, PPL…)</option>
+              <option value="custom">Custom — emphasize muscle targets</option>
+            </select>
+          </div>
+          <div class="field" id="program-select-wrap" hidden>
+            <label for="set-active-program">Program</label>
+            <select id="set-active-program">
+              <option value="">None yet — runner in a later update</option>
+            </select>
+            <p class="hint">Program runner ships next; MED planner still builds sessions until then.</p>
+          </div>
+          <div class="field">
             <label for="set-name">Your name (optional)</label>
             <input type="text" id="set-name" maxlength="40" placeholder="Shown under the logo" />
           </div>
@@ -339,6 +355,20 @@
           <p class="hint" id="advanced-locked-hint" hidden>
             Advanced training knobs are open for every coach stage.
           </p>
+        </div>
+        <div class="card" id="custom-targets-card" hidden>
+          <h2>Custom weekly targets</h2>
+          <p class="hint">
+            Multipliers on MED weekly sets (0.5×–1.5×). Presets fill the map; tweak primaries, then Save &amp; rebuild.
+          </p>
+          <div class="btn-row" id="custom-target-presets">
+            <button type="button" class="ghost-btn" data-ct-preset="balanced">Balanced</button>
+            <button type="button" class="ghost-btn" data-ct-preset="push_focus">Push</button>
+            <button type="button" class="ghost-btn" data-ct-preset="pull_focus">Pull</button>
+            <button type="button" class="ghost-btn" data-ct-preset="legs_focus">Legs</button>
+            <button type="button" class="ghost-btn" data-ct-preset="arms_shoulders">Arms / delts</button>
+          </div>
+          <div id="custom-target-muscles" class="custom-target-list"></div>
         </div>
         <div class="card" id="equipment-card">
           <h2>My equipment</h2>

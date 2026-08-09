@@ -1587,6 +1587,37 @@ button.tiny {
 #equipment-list {
   margin-top: 0.65rem;
 }
+#custom-target-presets {
+  margin-bottom: 0.65rem;
+}
+.custom-target-list {
+  display: grid;
+  gap: 0.45rem;
+}
+.custom-target-row {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 7rem) 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+}
+.custom-target-row label {
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.custom-target-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--ember);
+}
+.custom-target-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--ember);
+  font-weight: 600;
+  text-align: right;
+  font-size: 0.82rem;
+}
 .check-list label {
   display: flex;
   align-items: center;

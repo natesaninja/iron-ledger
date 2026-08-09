@@ -24,6 +24,15 @@ export const PRIORITY = [
   "calves", "core", "traps", "lower_back",
 ];
 
+/** Multipliers on weeklyMed when trainingMode === "custom". balanced → null (all 1.0). */
+export const CUSTOM_TARGET_PRESETS = {
+  balanced: {}, // treat as all 1.0 → store null
+  push_focus: { chest: 1.25, front_delts: 1.2, side_delts: 1.15, triceps: 1.15 },
+  pull_focus: { lats: 1.25, upper_back: 1.2, rear_delts: 1.15, biceps: 1.15 },
+  legs_focus: { quads: 1.25, hamstrings: 1.2, glutes: 1.2, calves: 1.1 },
+  arms_shoulders: { side_delts: 1.25, rear_delts: 1.15, biceps: 1.25, triceps: 1.25 },
+};
+
 export const FOCUS = {
   push: ["chest", "front_delts", "side_delts", "triceps"],
   pull: ["lats", "upper_back", "rear_delts", "biceps"],
