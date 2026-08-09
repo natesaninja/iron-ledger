@@ -2,6 +2,7 @@
  * Set logs, progression, PRs, warm-ups, rest defaults — pure helpers (no DOM).
  */
 import { EXERCISES, MUSCLES } from "./data.js";
+import { isExerciseAvailable } from "./equipment.js";
 
 const EX_MAP = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));
 const MUSCLE_MAP = Object.fromEntries(MUSCLES.map((m) => [m.id, m]));
@@ -640,6 +641,7 @@ export function rankSubstitutes(exerciseId, settings, preferred = []) {
   const scored = [];
   for (const e of EXERCISES) {
     if (e.id === exerciseId || excluded.has(e.id)) continue;
+    if (!isExerciseAvailable(e, settings.equipment)) continue;
     if (e.pattern !== ex.pattern) continue;
     const overlap = e.primary.filter((m) => ex.primary.includes(m)).length;
     if (!overlap) continue;

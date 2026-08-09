@@ -5,7 +5,7 @@
 
 const KEY = "strengthledger_v1";
 /** Schema version written on save */
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
 
 const EMPTY = () => ({
   settings: null,
@@ -60,6 +60,22 @@ export function migrateState(raw) {
   if (ver < 3) {
     if (data.lastBackupAt === undefined) data.lastBackupAt = null;
     if (data.backupRemindDays == null) data.backupRemindDays = 7;
+  }
+
+  // v3 → v4: equipment / programs / custom training settings
+  if (ver < 4) {
+    if (data.settings && typeof data.settings === "object") {
+      if (data.settings.trainingMode == null) data.settings.trainingMode = "med";
+      if (data.settings.activeProgramId === undefined) data.settings.activeProgramId = null;
+      if (data.settings.equipment === undefined) data.settings.equipment = null;
+      if (data.settings.equipmentPreset === undefined) data.settings.equipmentPreset = null;
+      if (data.settings.customTargets === undefined) data.settings.customTargets = null;
+      if (!data.settings.trainingMaxes) {
+        data.settings.trainingMaxes = { squat: null, bench: null, deadlift: null, press: null };
+      }
+      if (data.settings.bbbSupplementalPct == null) data.settings.bbbSupplementalPct = 0.5;
+      if (data.settings.programWeekOffset == null) data.settings.programWeekOffset = 0;
+    }
   }
 
   data.version = STORE_VERSION;

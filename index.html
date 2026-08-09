@@ -66,7 +66,7 @@
           <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
         </div>
         <div class="cmd-meta">
-          <span class="app-version" id="app-version">v19</span>
+          <span class="app-version" id="app-version">v20</span>
           <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">◐</button>
         </div>
       </div>
@@ -78,6 +78,7 @@
       <section id="view-today" class="view active">
         <div class="status-bar">
           <span class="chip" id="stage-chip">Guided</span>
+          <span class="chip" id="mode-chip">MED</span>
           <span class="status-tag">TODAY</span>
         </div>
         <div class="hero" id="today-hero"></div>
@@ -119,6 +120,10 @@
 
       <!-- PLAN / CALENDAR -->
       <section id="view-plan" class="view">
+        <div class="status-bar">
+          <span class="chip" id="plan-mode-chip">MED</span>
+          <span class="status-tag">PLAN</span>
+        </div>
         <div class="card">
           <div class="cal-head">
             <button type="button" class="icon-btn" id="cal-prev" aria-label="Previous month">‹</button>
@@ -274,7 +279,7 @@
         <div class="card">
           <h2>Coaching path</h2>
           <p class="hint" id="coach-stage-detail">
-            Start <strong>Guided</strong> (we decide). After enough completed sessions you unlock swaps, then full Custom — when you’re back to choosing what works.
+            Start <strong>Guided</strong> for denser coaching. Exclude lifts, swap, and change split anytime — home gyms shouldn’t wait to unlock gear reality.
           </p>
           <div class="field">
             <label for="set-coach">Guidance mode</label>
@@ -289,6 +294,14 @@
         </div>
         <div class="card">
           <h2>Training settings</h2>
+          <div class="field">
+            <label for="set-training-mode">Training mode</label>
+            <select id="set-training-mode">
+              <option value="med">MED Auto — coverage-driven sessions</option>
+              <option value="program">Programs — fixed templates (BBB, PPL…)</option>
+              <option value="custom">Custom — emphasize muscle targets</option>
+            </select>
+          </div>
           <div class="field">
             <label for="set-name">Your name (optional)</label>
             <input type="text" id="set-name" maxlength="40" placeholder="Shown under the logo" />
@@ -337,12 +350,72 @@
             </div>
           </div>
           <p class="hint" id="advanced-locked-hint" hidden>
-            Split &amp; volume stay on Full-Body MED while you’re Guided/Building so effort isn’t wasted. Unlock via completed sessions or set Custom above.
+            Advanced training knobs are open for every coach stage.
           </p>
+        </div>
+        <div class="card" id="programs-card" hidden>
+          <h2>Program</h2>
+          <p class="hint">
+            Educational templates inspired by popular structures — not affiliated with authors’ books or commercial programs.
+          </p>
+          <div class="field">
+            <label for="set-active-program">Active program</label>
+            <select id="set-active-program">
+              <option value="">Select a program…</option>
+            </select>
+          </div>
+          <p class="hint" id="program-attribution"></p>
+          <div id="tm-fields" hidden>
+            <h3 class="settings-subhead">Training maxes (5/3/1)</h3>
+            <p class="hint">Working weights use ~% of these TMs. Leave blank to set later.</p>
+            <div class="tm-grid">
+              <div class="field">
+                <label for="tm-squat">Squat TM</label>
+                <input id="tm-squat" type="number" min="0" step="5" placeholder="e.g. 315" />
+              </div>
+              <div class="field">
+                <label for="tm-bench">Bench TM</label>
+                <input id="tm-bench" type="number" min="0" step="5" placeholder="e.g. 225" />
+              </div>
+              <div class="field">
+                <label for="tm-deadlift">Deadlift TM</label>
+                <input id="tm-deadlift" type="number" min="0" step="5" placeholder="e.g. 405" />
+              </div>
+              <div class="field">
+                <label for="tm-press">Press TM</label>
+                <input id="tm-press" type="number" min="0" step="5" placeholder="e.g. 135" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="custom-targets-card" hidden>
+          <h2>Custom weekly targets</h2>
+          <p class="hint">
+            Multipliers on MED weekly sets (0.5×–1.5×). Presets fill the map; tweak primaries, then Save &amp; rebuild.
+          </p>
+          <div class="btn-row" id="custom-target-presets">
+            <button type="button" class="ghost-btn" data-ct-preset="balanced">Balanced</button>
+            <button type="button" class="ghost-btn" data-ct-preset="push_focus">Push</button>
+            <button type="button" class="ghost-btn" data-ct-preset="pull_focus">Pull</button>
+            <button type="button" class="ghost-btn" data-ct-preset="legs_focus">Legs</button>
+            <button type="button" class="ghost-btn" data-ct-preset="arms_shoulders">Arms / delts</button>
+          </div>
+          <div id="custom-target-muscles" class="custom-target-list"></div>
+        </div>
+        <div class="card" id="equipment-card">
+          <h2>My equipment</h2>
+          <p class="hint">Home gym? Uncheck what you don’t have. Leave on Commercial gym for full library.</p>
+          <div class="btn-row" id="equipment-presets">
+            <button type="button" class="ghost-btn" data-eq-preset="gym">Commercial gym</button>
+            <button type="button" class="ghost-btn" data-eq-preset="home_barbell">Home barbell</button>
+            <button type="button" class="ghost-btn" data-eq-preset="db_only">Dumbbells</button>
+            <button type="button" class="ghost-btn" data-eq-preset="minimal">Minimal</button>
+          </div>
+          <div class="check-list" id="equipment-list"></div>
         </div>
         <div class="card" id="exclude-card">
           <h2>Exclude exercises</h2>
-          <p class="hint">Hidden from the planner (e.g. walking lunges). Unlocks in Building/Custom.</p>
+          <p class="hint">Hidden from the planner (no equipment, injury, or preference). Check what you don’t have — e.g. leg press at a home gym — then Save &amp; rebuild.</p>
           <div class="check-list" id="exclude-list"></div>
         </div>
         <div class="card">
@@ -398,7 +471,7 @@
           <div class="btn-row" style="margin-top:0.5rem">
             <button type="button" class="ghost-btn" id="revoke-invite">Lock this device (require invite again)</button>
           </div>
-          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v19 · field ops UI · set logs + backups</p>
+          <p class="dim" style="margin-top:0.75rem" id="data-version-note">v20 · equipment · programs · custom targets</p>
         </div>
       </section>
     </main>

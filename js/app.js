@@ -10,6 +10,8 @@ import {
   MUSCLES,
   MED_PRINCIPLES,
   DOSE_PROFILES,
+  CUSTOM_TARGET_PRESETS,
+  quantizeCustomTarget,
 } from "./data.js";
 import {
   buildPlan,
@@ -68,8 +70,15 @@ import {
   buildSessionSummary,
   buildCoverInsights,
 } from "./logging.js";
+import {
+  EQUIPMENT_KEYS,
+  EQUIPMENT_LABELS,
+  applyEquipmentPreset,
+  fullEquipment,
+} from "./equipment.js";
+import { buildProgramPlan, listPrograms, getProgram } from "./programs.js";
 
-const APP_VERSION = "19.1";
+const APP_VERSION = "20";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -95,6 +104,15 @@ let calMonth = new Date().getMonth(); // 0-index
 let activeSessionIso = null;
 let swapCtx = null; // { sessionIso, exIndex }
 let onboardStep = 0;
+/** Draft choices during first-run onboarding (applied on finish). */
+let onboardDraft = {
+  location: "gym", // "gym" | "home"
+  equipmentPreset: "gym",
+  trainingMode: "med",
+  activeProgramId: null,
+  displayName: "",
+  sessionMinutes: 55,
+};
 /** Rest timer: endsAt ms, total sec, interval id */
 let restTimer = { endsAt: null, totalSec: 90, intervalId: null };
 /** @type {WakeLockSentinel | null} */
@@ -166,7 +184,7 @@ function getCoach() {
 function effectiveSettings() {
   const { caps } = getCoach();
   const s = { ...state.settings };
-  // Guided/Building: force full-body MED so the app does the thinking
+  // Optional full-body lock (off by default so split preference always applies)
   if (caps.lockFullBody) {
     s.splitPreference = "full_body";
   }
@@ -208,11 +226,17 @@ function rebuild() {
     const end = toISO(new Date(d0.getFullYear(), d0.getMonth() + 1, 1));
     horizon = { start, end };
   }
-  plan = buildPlan(days, effectiveSettings(), {
+  const s = effectiveSettings();
+  const planHorizon = {
     ...horizon,
     dayDose: effectiveDayDose(),
     doseProfiles: DOSE_PROFILES,
-  });
+  };
+  if (s.trainingMode === "program" && s.activeProgramId) {
+    plan = buildProgramPlan(days, s, planHorizon);
+  } else {
+    plan = buildPlan(days, s, planHorizon);
+  }
 
   // Merge completed flags (match by exercise id when dose rebuilds the list)
   for (const s of plan.sessions) {
@@ -354,6 +378,51 @@ function initNav() {
 }
 
 // ---------- render today ----------
+const TRAINING_MODE_LABELS = {
+  med: "MED",
+  program: "Program",
+  custom: "Custom",
+};
+
+function trainingModeLabel(mode) {
+  return TRAINING_MODE_LABELS[mode] || TRAINING_MODE_LABELS.med;
+}
+
+/** Short chip label for a program id (from catalog). */
+function programShortName(programId) {
+  if (!programId) return null;
+  const SHORT = {
+    bbb_531: "BBB",
+    ppl_hyper: "PPL",
+    ul_hyper: "UL",
+    bro_classic: "Bro",
+  };
+  if (SHORT[programId]) return SHORT[programId];
+  const prog = getProgram(programId);
+  if (!prog?.name) return null;
+  return prog.name.split(/[/(·]/)[0].trim().slice(0, 12) || null;
+}
+
+function modeChipClass(mode) {
+  return "chip " + (mode === "custom" ? "ember" : mode === "program" ? "train" : "ok");
+}
+
+function renderModeChip() {
+  const mode = state.settings?.trainingMode || "med";
+  let label = trainingModeLabel(mode);
+  if (mode === "program") {
+    const short = programShortName(state.settings?.activeProgramId);
+    if (short) label = `Program · ${short}`;
+  }
+  const cls = modeChipClass(mode);
+  for (const id of ["mode-chip", "plan-mode-chip"]) {
+    const chip = document.getElementById(id);
+    if (!chip) continue;
+    chip.textContent = label;
+    chip.className = cls;
+  }
+}
+
 function renderCoachPanel(session) {
   const { n, stage } = getCoach();
   const chip = document.getElementById("stage-chip");
@@ -361,6 +430,7 @@ function renderCoachPanel(session) {
     chip.textContent = `${stage.label} · ${n} done`;
     chip.className = "chip " + (stage.id === "custom" ? "ok" : stage.id === "building" ? "train" : "warn");
   }
+  renderModeChip();
   const ver = document.getElementById("app-version");
   if (ver) ver.textContent = `v${APP_VERSION}`;
 
@@ -537,16 +607,24 @@ function renderSessionCard(session) {
   title.textContent = `${weekdayShort(session.day)} · ${session.label}`;
   const box = +state.settings.timeBoxMinutes || 0;
   const timeNote = box >= 25 ? `Time-box ${box} min.` : "";
+  const sessionScheme = (session.schemeNotes || "").trim();
   // Rationale stays optional/collapsed — not dumped on the card face
   if (rationale) {
     const why = (session.rationale || "").trim();
-    if (why || timeNote) {
+    const schemeLine = sessionScheme
+      ? `<p class="session-scheme">${escapeHtml(sessionScheme)}</p>`
+      : "";
+    if (why || timeNote || schemeLine) {
       rationale.hidden = false;
       rationale.className = "session-why-wrap";
-      rationale.innerHTML = foldHtml(
-        "Why this session?",
-        `<p class="hint" style="margin:0">${escapeHtml(why)}${why && timeNote ? " " : ""}${escapeHtml(timeNote)}</p>`
-      );
+      const foldBody =
+        why || timeNote
+          ? foldHtml(
+              "Why this session?",
+              `<p class="hint" style="margin:0">${escapeHtml(why)}${why && timeNote ? " " : ""}${escapeHtml(timeNote)}</p>`
+            )
+          : "";
+      rationale.innerHTML = `${schemeLine}${foldBody}`;
     } else {
       rationale.hidden = true;
       rationale.innerHTML = "";
@@ -633,12 +711,17 @@ function renderSessionCard(session) {
         .filter(Boolean)
         .join("");
 
+      const schemeLine = (ex.schemeNotes || "").trim()
+        ? `<div class="ex-scheme">${escapeHtml(ex.schemeNotes.trim())}</div>`
+        : "";
+
       return `
     <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""}" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
       <button type="button" class="ex-check" data-toggle="${i}" aria-label="Mark done">${ex.done ? "✓" : ""}</button>
       <div class="ex-main">
         <div class="ex-name">${escapeHtml(ex.name)}</div>
         <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}</div>
+        ${schemeLine}
         <div class="set-log" data-ex-log="${i}">
           <div class="set-head"><span></span><span>Load</span><span></span><span>Reps</span><span>RPE</span><span></span></div>
           ${setRows}
@@ -1132,6 +1215,7 @@ function renderUpcoming(today) {
 
 // ---------- calendar ----------
 function renderCalendar() {
+  renderModeChip();
   document.getElementById("cal-label").textContent = monthLabel(calYear, calMonth);
   const dows = document.getElementById("cal-dows");
   if (!dows.dataset.ready) {
@@ -1175,16 +1259,19 @@ function renderCalendar() {
     list.innerHTML = `<p class="hint">No train days this month yet. Tap days above.</p>`;
   } else {
     list.innerHTML = monthSessions
-      .map(
-        (s) => `
+      .map((s) => {
+        const scheme = (s.schemeNotes || "").trim();
+        const lifts = `${s.exercises.map((e) => e.name).slice(0, 3).join(" · ")}${s.exercises.length > 3 ? "…" : ""}`;
+        const sub = scheme ? `${escapeHtml(scheme)} · ${escapeHtml(lifts)}` : escapeHtml(lifts);
+        return `
       <button type="button" class="session-row" data-jump="${s.day}">
         <div>
           <strong>${weekdayShort(s.day)} ${s.day} · ${escapeHtml(s.label)}</strong>
-          <span>${s.exercises.map((e) => e.name).slice(0, 3).join(" · ")}${s.exercises.length > 3 ? "…" : ""}</span>
+          <span>${sub}</span>
         </div>
         <span class="chip">${s.estimatedMinutes}m</span>
-      </button>`
-      )
+      </button>`;
+      })
       .join("");
     list.querySelectorAll("[data-jump]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1253,9 +1340,10 @@ function renderCoverage() {
     return;
   }
   const under = plan.meta.underCoveredPrimaries || [];
+  const modeLbl = trainingModeLabel(state.settings?.trainingMode || "med");
   meta.textContent = under.length
-    ? `⚠ Under MED (planned) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
-    : `✓ Primaries on planned MED track · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
+    ? `⚠ Under target (${modeLbl}) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
+    : `✓ Primaries on planned track · ${modeLbl} · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
 
   const from = plan.meta?.start;
   const to = plan.meta?.end;
@@ -1541,11 +1629,153 @@ function initSuppsUi() {
 }
 
 // ---------- settings ----------
+/** Muscles editable in custom targets UI (primary + secondary; support stays default). */
+function customTargetMuscleList() {
+  return MUSCLES.filter((m) => m.tier === "primary" || m.tier === "secondary");
+}
+
+function syncTrainingModePanels(mode) {
+  const m = mode || document.getElementById("set-training-mode")?.value || "med";
+  const customCard = document.getElementById("custom-targets-card");
+  const programsCard = document.getElementById("programs-card");
+  if (customCard) customCard.hidden = m !== "custom";
+  if (programsCard) programsCard.hidden = m !== "program";
+  if (m === "program") syncProgramDetailPanels();
+}
+
+/** Populate program catalog select once options exist. */
+function ensureProgramCatalogOptions() {
+  const sel = document.getElementById("set-active-program");
+  if (!sel) return;
+  const current = sel.value;
+  const catalog = listPrograms();
+  const opts = [`<option value="">Select a program…</option>`].concat(
+    catalog.map(
+      (p) =>
+        `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`
+    )
+  );
+  // Rebuild only when catalog ids change (avoids wiping on every paint if already good)
+  const existingIds = [...sel.querySelectorAll("option")]
+    .map((o) => o.value)
+    .filter(Boolean)
+    .join(",");
+  const nextIds = catalog.map((p) => p.id).join(",");
+  if (existingIds !== nextIds || sel.options.length < 2) {
+    sel.innerHTML = opts.join("");
+  }
+  if (current) sel.value = current;
+}
+
+function syncProgramDetailPanels() {
+  const sel = document.getElementById("set-active-program");
+  const id = sel?.value || "";
+  const prog = id ? getProgram(id) : null;
+  const attr = document.getElementById("program-attribution");
+  if (attr) {
+    attr.textContent = prog?.attribution || (id ? "" : "Pick a template to follow on your train days.");
+  }
+  const tmBox = document.getElementById("tm-fields");
+  if (tmBox) tmBox.hidden = !(prog && prog.needsTrainingMaxes);
+}
+
+function readTrainingMaxesFromForm() {
+  const keys = ["squat", "bench", "deadlift", "press"];
+  const out = { ...(state.settings.trainingMaxes || {}) };
+  for (const k of keys) {
+    const el = document.getElementById(`tm-${k}`);
+    if (!el) continue;
+    const v = el.value.trim() === "" ? null : +el.value;
+    out[k] = v != null && Number.isFinite(v) && v > 0 ? v : null;
+  }
+  return out;
+}
+
+function fillTrainingMaxesForm(tms) {
+  const map = tms || {};
+  for (const k of ["squat", "bench", "deadlift", "press"]) {
+    const el = document.getElementById(`tm-${k}`);
+    if (!el) continue;
+    const v = map[k];
+    el.value = v != null && Number.isFinite(+v) && +v > 0 ? String(v) : "";
+  }
+}
+
+function renderCustomTargetControls(targets) {
+  const box = document.getElementById("custom-target-muscles");
+  if (!box) return;
+  const map = targets && typeof targets === "object" ? targets : {};
+  box.innerHTML = customTargetMuscleList()
+    .map((m) => {
+      const raw = map[m.id];
+      const shown = quantizeCustomTarget(raw != null ? raw : 1);
+      return `
+      <div class="custom-target-row">
+        <label for="ct-${m.id}">${escapeHtml(m.name)}</label>
+        <input type="range" id="ct-${m.id}" data-ct-muscle="${m.id}"
+          min="0.5" max="1.5" step="0.05" value="${shown}" />
+        <span class="custom-target-val" data-ct-val="${m.id}">${shown.toFixed(2)}×</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function highlightCustomPreset(presetId) {
+  document.querySelectorAll("#custom-target-presets [data-ct-preset]").forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.ctPreset === presetId);
+  });
+}
+
+/** Guess which preset matches the current map (for highlight only). */
+function matchCustomPreset(map) {
+  if (!map || !Object.keys(map).length) return "balanced";
+  for (const [id, preset] of Object.entries(CUSTOM_TARGET_PRESETS)) {
+    if (id === "balanced") continue;
+    const keys = Object.keys(preset);
+    if (
+      keys.length === Object.keys(map).length &&
+      keys.every((k) => map[k] === preset[k])
+    ) {
+      return id;
+    }
+  }
+  return null;
+}
+
+function applyCustomPresetToForm(id) {
+  const preset = CUSTOM_TARGET_PRESETS[id];
+  if (!preset || id === "balanced" || !Object.keys(preset).length) {
+    renderCustomTargetControls(null);
+    highlightCustomPreset("balanced");
+    return;
+  }
+  renderCustomTargetControls(preset);
+  highlightCustomPreset(id);
+}
+
+function readCustomTargetsFromForm() {
+  const map = {};
+  document.querySelectorAll("#custom-target-muscles [data-ct-muscle]").forEach((input) => {
+    const v = quantizeCustomTarget(+input.value || 1);
+    if (v !== 1) map[input.dataset.ctMuscle] = v;
+  });
+  return Object.keys(map).length ? map : null;
+}
+
 function renderSettingsForm() {
   const s = state.settings;
   const { n, q, stage, caps } = getCoach();
   const nameEl = document.getElementById("set-name");
   if (nameEl) nameEl.value = s.displayName || "";
+  const modeSel = document.getElementById("set-training-mode");
+  if (modeSel) modeSel.value = s.trainingMode || "med";
+  ensureProgramCatalogOptions();
+  const progSel = document.getElementById("set-active-program");
+  if (progSel) progSel.value = s.activeProgramId || "";
+  fillTrainingMaxesForm(s.trainingMaxes);
+  syncTrainingModePanels(s.trainingMode || "med");
+  renderCustomTargetControls(s.customTargets);
+  highlightCustomPreset(matchCustomPreset(s.customTargets));
   document.getElementById("set-minutes").value = s.sessionMinutes;
   document.getElementById("set-split").value = s.splitPreference;
   document.getElementById("set-med").value = s.medMultiplier;
@@ -1568,7 +1798,7 @@ function renderSettingsForm() {
   }
   const stageDetail = document.getElementById("coach-stage-detail");
   if (stageDetail) {
-    stageDetail.innerHTML = `${escapeHtml(stage.blurb)} Auto path: <strong>Guided</strong> (0–5) → <strong>Building</strong> (6–14) → <strong>Custom</strong> (15+). Quality gates use sessions with logged hard sets when available.`;
+    stageDetail.innerHTML = `${escapeHtml(stage.blurb)} Auto path: <strong>Guided</strong> (0–5) → <strong>Building</strong> (6–14) → <strong>Custom</strong> (15+) changes coaching tone only — exclude, swap, split, and volume stay available at every stage.`;
   }
   const deloadLbl = document.getElementById("deload-status");
   if (deloadLbl) {
@@ -1602,8 +1832,10 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · field ops UI · set logs + backups`;
+    verNote.textContent = `v${APP_VERSION} · equipment · programs · custom targets`;
   }
+
+  renderEquipmentSettings();
 
   const box = document.getElementById("exclude-list");
   const excluded = new Set(s.excludedExercises || []);
@@ -1614,6 +1846,63 @@ function renderSettingsForm() {
       ${escapeHtml(ex.name)}
     </label>`
   ).join("");
+}
+
+/** Populate equipment checklist + preset highlight from settings.equipment */
+function renderEquipmentSettings() {
+  const s = state.settings;
+  const list = document.getElementById("equipment-list");
+  const card = document.getElementById("equipment-card");
+  if (!list) return;
+
+  const eq = s.equipment;
+  const isUnrestricted = eq == null;
+  list.innerHTML = EQUIPMENT_KEYS.map((k) => {
+    const checked = isUnrestricted || eq[k] === true;
+    return `<label>
+      <input type="checkbox" data-eq-key="${k}" ${checked ? "checked" : ""} />
+      ${escapeHtml(EQUIPMENT_LABELS[k] || k)}
+    </label>`;
+  }).join("");
+
+  const preset =
+    s.equipmentPreset ||
+    (isUnrestricted ? "gym" : "custom");
+  if (card) card.dataset.equipmentPreset = preset;
+  document.querySelectorAll("#equipment-presets [data-eq-preset]").forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.eqPreset === preset);
+  });
+}
+
+/** Apply a preset to the form only (persists on Save & rebuild). */
+function applyEquipmentPresetToForm(id) {
+  const flags = id === "gym" ? fullEquipment() : applyEquipmentPreset(id);
+  EQUIPMENT_KEYS.forEach((k) => {
+    const input = document.querySelector(`#equipment-list input[data-eq-key="${k}"]`);
+    if (input) input.checked = flags[k] === true;
+  });
+  const card = document.getElementById("equipment-card");
+  if (card) card.dataset.equipmentPreset = id;
+  document.querySelectorAll("#equipment-presets [data-eq-preset]").forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.eqPreset === id);
+  });
+}
+
+function readEquipmentFromForm() {
+  const card = document.getElementById("equipment-card");
+  const preset = card?.dataset.equipmentPreset || "custom";
+  if (preset === "gym") {
+    return { equipment: null, equipmentPreset: "gym" };
+  }
+  if (preset === "home_barbell" || preset === "db_only" || preset === "minimal") {
+    return { equipment: applyEquipmentPreset(preset), equipmentPreset: preset };
+  }
+  const equipment = {};
+  for (const k of EQUIPMENT_KEYS) {
+    const input = document.querySelector(`#equipment-list input[data-eq-key="${k}"]`);
+    equipment[k] = !!input?.checked;
+  }
+  return { equipment, equipmentPreset: "custom" };
 }
 
 function saveSettingsFromForm() {
@@ -1650,6 +1939,32 @@ function saveSettingsFromForm() {
     const checks = [...document.querySelectorAll("#exclude-list input:checked")];
     state.settings.excludedExercises = checks.map((c) => c.value);
   }
+
+  const modeSel = document.getElementById("set-training-mode");
+  if (modeSel) {
+    const mode = modeSel.value || "med";
+    state.settings.trainingMode = ["med", "program", "custom"].includes(mode) ? mode : "med";
+  }
+  const progSel = document.getElementById("set-active-program");
+  if (progSel) {
+    state.settings.activeProgramId = progSel.value || null;
+  }
+  // Program mode with empty catalog pick → default first template (avoid silent MED fallback)
+  if (state.settings.trainingMode === "program" && !state.settings.activeProgramId) {
+    const first = listPrograms()[0];
+    if (first) {
+      state.settings.activeProgramId = first.id;
+      if (progSel) progSel.value = first.id;
+    }
+  }
+  state.settings.trainingMaxes = readTrainingMaxesFromForm();
+  // Always capture custom map from form (ignored by planner unless mode === custom)
+  state.settings.customTargets = readCustomTargetsFromForm();
+
+  const eqSave = readEquipmentFromForm();
+  state.settings.equipment = eqSave.equipment;
+  state.settings.equipmentPreset = eqSave.equipmentPreset;
+
   persist();
   rebuild();
   updateGreeting();
@@ -1776,18 +2091,158 @@ function renderAll() {
 
 // ---------- events ----------
 // ---------- onboarding (share-friendly, each device is private) ----------
-const ONBOARD_STEPS = [
-  {
-    title: "We do the thinking first",
-    html: `
-      <p class="hint"><strong>Iron Ledger</strong> builds commercial-gym sessions from evidence-based minimum effective dose: compounds first, recovery windows, weekly muscle coverage — so limited train days still count.</p>
-      <p class="hint" style="margin-top:0.65rem"><strong>Guided mode</strong> first: follow the coach and mark sessions done. Later you unlock swaps, then full Custom — keep what works, drop what doesn’t.</p>
+const ONBOARD_STEP_COUNT = 4;
+
+const ONBOARD_HOME_PRESETS = [
+  { id: "home_barbell", label: "Home barbell" },
+  { id: "db_only", label: "Dumbbells" },
+  { id: "minimal", label: "Minimal" },
+];
+
+function resetOnboardDraft() {
+  onboardDraft = {
+    location: state.settings?.equipment == null && (!state.settings?.equipmentPreset || state.settings.equipmentPreset === "gym")
+      ? "gym"
+      : state.settings?.equipmentPreset && state.settings.equipmentPreset !== "gym"
+        ? "home"
+        : "gym",
+    equipmentPreset:
+      state.settings?.equipmentPreset && state.settings.equipmentPreset !== "custom"
+        ? state.settings.equipmentPreset
+        : state.settings?.equipment == null
+          ? "gym"
+          : "home_barbell",
+    trainingMode: state.settings?.trainingMode || "med",
+    activeProgramId: state.settings?.activeProgramId || null,
+    displayName: state.settings?.displayName || "",
+    sessionMinutes: state.settings?.sessionMinutes || 55,
+  };
+  if (onboardDraft.location === "home" && onboardDraft.equipmentPreset === "gym") {
+    onboardDraft.equipmentPreset = "home_barbell";
+  }
+}
+
+function showOnboarding(force = false) {
+  if (!force && state.onboardingComplete) {
+    document.getElementById("onboard").hidden = true;
+    return;
+  }
+  onboardStep = 0;
+  resetOnboardDraft();
+  document.getElementById("onboard").hidden = false;
+  renderOnboardStep();
+}
+
+function renderOnboardStep() {
+  const titleEl = document.getElementById("onboard-title");
+  const body = document.getElementById("onboard-body");
+  const back = document.getElementById("onboard-back");
+  const next = document.getElementById("onboard-next");
+  back.hidden = onboardStep === 0;
+  next.hidden = false;
+  next.textContent = "Continue";
+
+  if (onboardStep === 0) {
+    titleEl.textContent = "We do the thinking first";
+    body.innerHTML = `
+      <p class="hint"><strong>Iron Ledger</strong> builds sessions from evidence-based minimum effective dose: compounds first, recovery windows, weekly muscle coverage — so limited train days still count.</p>
+      <p class="hint" style="margin-top:0.65rem">Pick where you train and how you want sessions chosen. Equipment filters lifts; modes switch MED Auto, named programs, or custom muscle targets.</p>
       <p class="dim" style="margin-top:0.65rem">Updates install automatically when online. Never delete the Home Screen icon to update.</p>
-    `,
-  },
-  {
-    title: "Your setup",
-    html: `
+    `;
+  } else if (onboardStep === 1) {
+    titleEl.textContent = "Where do you train?";
+    const homeOpen = onboardDraft.location === "home";
+    body.innerHTML = `
+      <p class="hint">Gym = full commercial library. Home = filter lifts to a gear preset (tweak anytime in Settings).</p>
+      <div class="btn-row onboard-choices" style="margin-top:0.75rem">
+        <button type="button" class="ghost-btn ${onboardDraft.location === "gym" ? "is-selected" : ""}" data-ob-loc="gym">Commercial gym</button>
+        <button type="button" class="ghost-btn ${homeOpen ? "is-selected" : ""}" data-ob-loc="home">Home gym</button>
+      </div>
+      <div id="ob-home-presets" ${homeOpen ? "" : "hidden"} style="margin-top:0.85rem">
+        <p class="hint" style="margin-bottom:0.45rem">Home preset</p>
+        <div class="btn-row onboard-choices">
+          ${ONBOARD_HOME_PRESETS.map(
+            (p) =>
+              `<button type="button" class="ghost-btn ${onboardDraft.equipmentPreset === p.id ? "is-selected" : ""}" data-ob-eq="${p.id}">${escapeHtml(p.label)}</button>`
+          ).join("")}
+        </div>
+      </div>
+    `;
+    body.querySelectorAll("[data-ob-loc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        onboardDraft.location = btn.dataset.obLoc;
+        if (onboardDraft.location === "gym") {
+          onboardDraft.equipmentPreset = "gym";
+        } else if (onboardDraft.equipmentPreset === "gym") {
+          onboardDraft.equipmentPreset = "home_barbell";
+        }
+        renderOnboardStep();
+      });
+    });
+    body.querySelectorAll("[data-ob-eq]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        onboardDraft.location = "home";
+        onboardDraft.equipmentPreset = btn.dataset.obEq;
+        renderOnboardStep();
+      });
+    });
+  } else if (onboardStep === 2) {
+    titleEl.textContent = "How do you train?";
+    const mode = onboardDraft.trainingMode || "med";
+    const programs = listPrograms();
+    const progPick = mode === "program";
+    body.innerHTML = `
+      <p class="hint">Choose how sessions are built. You can change mode anytime in Settings.</p>
+      <div class="btn-row onboard-choices" style="margin-top:0.75rem">
+        <button type="button" class="ghost-btn ${mode === "med" ? "is-selected" : ""}" data-ob-mode="med">MED Auto</button>
+        <button type="button" class="ghost-btn ${mode === "program" ? "is-selected" : ""}" data-ob-mode="program">Program</button>
+        <button type="button" class="ghost-btn ${mode === "custom" ? "is-selected" : ""}" data-ob-mode="custom">Custom</button>
+      </div>
+      <p class="dim" style="margin-top:0.55rem" id="ob-mode-hint"></p>
+      <div id="ob-program-pick" ${progPick ? "" : "hidden"} style="margin-top:0.75rem">
+        <p class="hint" style="margin-bottom:0.45rem">Pick a template</p>
+        <div class="btn-row onboard-choices onboard-program-list">
+          ${programs
+            .map(
+              (p) =>
+                `<button type="button" class="ghost-btn ${onboardDraft.activeProgramId === p.id ? "is-selected" : ""}" data-ob-prog="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+    const hint = body.querySelector("#ob-mode-hint");
+    if (hint) {
+      hint.textContent =
+        mode === "program"
+          ? "Fixed templates (BBB, PPL, Upper/Lower, bro). Educational summaries only."
+          : mode === "custom"
+            ? "Boost weekly muscle targets; planner builds sessions around them."
+            : "Coverage-driven minimum effective dose — best default for most people.";
+    }
+    body.querySelectorAll("[data-ob-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        onboardDraft.trainingMode = btn.dataset.obMode;
+        if (onboardDraft.trainingMode !== "program") {
+          // keep last program id for Settings; not required for MED/custom
+        } else if (!onboardDraft.activeProgramId && programs[0]) {
+          onboardDraft.activeProgramId = programs[0].id;
+        }
+        renderOnboardStep();
+      });
+    });
+    body.querySelectorAll("[data-ob-prog]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        onboardDraft.trainingMode = "program";
+        onboardDraft.activeProgramId = btn.dataset.obProg;
+        renderOnboardStep();
+      });
+    });
+  } else {
+    // Final: mark days messaging (existing calendar start)
+    titleEl.textContent = "Start your calendar";
+    next.hidden = true;
+    body.innerHTML = `
       <div class="field">
         <label for="ob-name">Name (optional)</label>
         <input type="text" id="ob-name" placeholder="e.g. Alex" maxlength="40" />
@@ -1796,64 +2251,60 @@ const ONBOARD_STEPS = [
         <label for="ob-minutes">Session length (minutes)</label>
         <input type="number" id="ob-minutes" min="30" max="90" step="5" value="55" />
       </div>
-      <p class="hint">Start Guided. Advanced knobs stay locked until you’ve banked sessions (or you choose Custom later).</p>
-    `,
-  },
-  {
-    title: "Start your calendar",
-    html: `
       <p class="hint">Mark train days on <strong>Plan</strong>, then open <strong>Today</strong> and follow the coach. Or load a sample schedule to explore.</p>
       <div class="btn-row" style="margin-top:0.75rem">
         <button type="button" class="primary-btn" id="ob-empty">Start empty (recommended)</button>
         <button type="button" class="ghost-btn" id="ob-sample">Load sample schedule</button>
       </div>
-      <p class="dim" style="margin-top:0.75rem">Path: Guided (0–5) → Building (6–14) → Custom (15+). Log weights on Today so unlocks track real work. Science notes under lifts + Supps.</p>
-    `,
-  },
-];
-
-function showOnboarding(force = false) {
-  if (!force && state.onboardingComplete) {
-    document.getElementById("onboard").hidden = true;
-    return;
-  }
-  onboardStep = 0;
-  document.getElementById("onboard").hidden = false;
-  renderOnboardStep();
-}
-
-function renderOnboardStep() {
-  const step = ONBOARD_STEPS[onboardStep];
-  document.getElementById("onboard-title").textContent = step.title;
-  document.getElementById("onboard-body").innerHTML = step.html;
-  document.getElementById("onboard-back").hidden = onboardStep === 0;
-  const next = document.getElementById("onboard-next");
-  next.textContent = onboardStep >= ONBOARD_STEPS.length - 1 ? "Open app" : "Continue";
-
-  if (onboardStep === 1) {
-    document.getElementById("ob-name").value = state.settings.displayName || "";
-    document.getElementById("ob-minutes").value = state.settings.sessionMinutes || 55;
-  }
-  if (onboardStep === 2) {
+      <p class="dim" style="margin-top:0.75rem">Path: Guided (0–5) → Building (6–14) → Custom (15+) is coaching tone only. Change equipment or mode anytime in Settings.</p>
+    `;
+    const nameEl = document.getElementById("ob-name");
+    const minEl = document.getElementById("ob-minutes");
+    if (nameEl) nameEl.value = onboardDraft.displayName || "";
+    if (minEl) minEl.value = onboardDraft.sessionMinutes || 55;
     document.getElementById("ob-empty")?.addEventListener("click", () => finishOnboarding(false));
     document.getElementById("ob-sample")?.addEventListener("click", () => finishOnboarding(true));
-    next.hidden = true;
+  }
+}
+
+function captureOnboardNameMinutes() {
+  const nameEl = document.getElementById("ob-name");
+  const minEl = document.getElementById("ob-minutes");
+  if (nameEl) onboardDraft.displayName = nameEl.value.trim();
+  if (minEl) onboardDraft.sessionMinutes = +minEl.value || 55;
+}
+
+function applyOnboardDraftToSettings() {
+  const d = onboardDraft;
+  state.settings.displayName = (d.displayName || "").trim();
+  state.settings.sessionMinutes = +d.sessionMinutes || 55;
+
+  if (d.location === "gym" || d.equipmentPreset === "gym") {
+    state.settings.equipment = null;
+    state.settings.equipmentPreset = "gym";
   } else {
-    next.hidden = false;
+    const preset = ["home_barbell", "db_only", "minimal"].includes(d.equipmentPreset)
+      ? d.equipmentPreset
+      : "home_barbell";
+    state.settings.equipment = applyEquipmentPreset(preset);
+    state.settings.equipmentPreset = preset;
+  }
+
+  const mode = ["med", "program", "custom"].includes(d.trainingMode) ? d.trainingMode : "med";
+  state.settings.trainingMode = mode;
+  if (mode === "program") {
+    const id = d.activeProgramId || listPrograms()[0]?.id || null;
+    state.settings.activeProgramId = id;
   }
 }
 
 function finishOnboarding(useSample) {
-  if (onboardStep >= 1) {
-    const nameEl = document.getElementById("ob-name");
-    const minEl = document.getElementById("ob-minutes");
-    if (nameEl) state.settings.displayName = nameEl.value.trim();
-    if (minEl) state.settings.sessionMinutes = +minEl.value || 55;
-  }
-  // capture step 1 fields if user jumped via sample from step 2 after visiting 1
+  captureOnboardNameMinutes();
+  applyOnboardDraftToSettings();
   state.onboardingComplete = true;
   if (useSample) {
     applyAugustSeed(true);
+    persist(); // seed path rebuilds without save; keep equipment/mode + complete flag
   } else {
     // leave calendar empty — user marks days
     persist();
@@ -1861,6 +2312,7 @@ function finishOnboarding(useSample) {
   }
   document.getElementById("onboard").hidden = true;
   updateGreeting();
+  renderSettingsForm();
   if (!useSample) {
     document.querySelector('.nav-btn[data-view="plan"]')?.click();
     toast("Tap days you can train");
@@ -1900,6 +2352,51 @@ function initEvents() {
     applyAugustSeed(true);
   };
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
+  document.getElementById("set-training-mode")?.addEventListener("change", (e) => {
+    const mode = e.target.value;
+    syncTrainingModePanels(mode);
+    // Selecting Program with no pick → default first catalog program
+    if (mode === "program") {
+      const progSel = document.getElementById("set-active-program");
+      if (progSel && !progSel.value) {
+        const first = listPrograms()[0];
+        if (first) {
+          progSel.value = first.id;
+          syncProgramDetailPanels();
+        }
+      }
+    }
+  });
+  document.getElementById("set-active-program")?.addEventListener("change", () => {
+    syncProgramDetailPanels();
+  });
+  document.getElementById("custom-target-presets")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-ct-preset]");
+    if (!btn) return;
+    applyCustomPresetToForm(btn.dataset.ctPreset);
+  });
+  document.getElementById("custom-target-muscles")?.addEventListener("input", (e) => {
+    const input = e.target.closest("[data-ct-muscle]");
+    if (!input) return;
+    const v = quantizeCustomTarget(+input.value || 1);
+    const lbl = document.querySelector(`[data-ct-val="${input.dataset.ctMuscle}"]`);
+    if (lbl) lbl.textContent = `${v.toFixed(2)}×`;
+    highlightCustomPreset(null);
+  });
+  document.getElementById("equipment-presets")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-eq-preset]");
+    if (!btn) return;
+    applyEquipmentPresetToForm(btn.dataset.eqPreset);
+  });
+  document.getElementById("equipment-list")?.addEventListener("change", (e) => {
+    if (e.target.matches("input[data-eq-key]")) {
+      const card = document.getElementById("equipment-card");
+      if (card) card.dataset.equipmentPreset = "custom";
+      document.querySelectorAll("#equipment-presets [data-eq-preset]").forEach((btn) => {
+        btn.classList.remove("is-selected");
+      });
+    }
+  });
   document.getElementById("btn-deload")?.addEventListener("click", () => {
     if (!confirm("Start a 7-day deload? Train days will use Low (Rough) dose until it ends.")) return;
     startDeloadWeek();
@@ -1942,13 +2439,22 @@ function initEvents() {
 
   document.getElementById("onboard-next").onclick = () => {
     if (onboardStep === 1) {
-      const nameEl = document.getElementById("ob-name");
-      const minEl = document.getElementById("ob-minutes");
-      if (nameEl) state.settings.displayName = nameEl.value.trim();
-      if (minEl) state.settings.sessionMinutes = +minEl.value || 55;
-      persist();
+      // equipment choice already on draft
+      if (onboardDraft.location === "home" && onboardDraft.equipmentPreset === "gym") {
+        onboardDraft.equipmentPreset = "home_barbell";
+      }
     }
-    if (onboardStep >= ONBOARD_STEPS.length - 1) {
+    if (onboardStep === 2) {
+      if (onboardDraft.trainingMode === "program" && !onboardDraft.activeProgramId) {
+        const first = listPrograms()[0];
+        if (first) onboardDraft.activeProgramId = first.id;
+        else {
+          toast("No programs available — choose MED Auto");
+          return;
+        }
+      }
+    }
+    if (onboardStep >= ONBOARD_STEP_COUNT - 1) {
       finishOnboarding(false);
       return;
     }
@@ -1956,6 +2462,7 @@ function initEvents() {
     renderOnboardStep();
   };
   document.getElementById("onboard-back").onclick = () => {
+    if (onboardStep === ONBOARD_STEP_COUNT - 1) captureOnboardNameMinutes();
     if (onboardStep > 0) {
       onboardStep--;
       renderOnboardStep();

@@ -9,21 +9,21 @@ export const COACH_STAGES = {
     label: "Guided",
     minSessions: 0,
     maxSessions: 5,
-    blurb: "We pick the plan. You show up and lift. Focus on form and finishing sessions.",
+    blurb: "We pick the plan. You show up and lift. Focus on form and finishing sessions. Settings stay open so home gyms can exclude what they don’t have.",
   },
   building: {
     id: "building",
     label: "Building",
     minSessions: 6,
     maxSessions: 14,
-    blurb: "Still coached, but you can swap exercises and exclude what doesn’t fit.",
+    blurb: "Still coached — swap lifts, exclude equipment you lack, and tune split if your schedule differs.",
   },
   custom: {
     id: "custom",
     label: "Custom",
     minSessions: 15,
     maxSessions: Infinity,
-    blurb: "You’re back in the driver’s seat — tune split, volume, and exclusions freely.",
+    blurb: "You’re in the driver’s seat — tune split, volume, and exclusions freely.",
   },
 };
 
@@ -58,39 +58,37 @@ export function resolveCoachStage(completedCount, prefs = {}) {
   return COACH_STAGES.guided;
 }
 
+/**
+ * Pilot-friendly: exclude / swap / split / volume are always available.
+ * Stages still change coaching tone (script density, default “why” open), not hard locks.
+ * Home-gym friends need exclusions day one; quality gates no longer gate equipment reality.
+ */
 export function stageCapabilities(stageId) {
+  const openControls = {
+    showAdvancedSettings: true,
+    allowSplitChange: true,
+    allowMedMultiplier: true,
+    allowExclude: true,
+    allowSwap: true,
+    lockFullBody: false,
+  };
   switch (stageId) {
     case "custom":
       return {
-        showAdvancedSettings: true,
-        allowSplitChange: true,
-        allowMedMultiplier: true,
-        allowExclude: true,
-        allowSwap: true,
-        lockFullBody: false,
+        ...openControls,
         showCoachScript: true,
         showWhyDefaultOpen: false,
       };
     case "building":
       return {
-        showAdvancedSettings: false,
-        allowSplitChange: false,
-        allowMedMultiplier: false,
-        allowExclude: true,
-        allowSwap: true,
-        lockFullBody: true,
+        ...openControls,
         showCoachScript: true,
         showWhyDefaultOpen: true,
       };
     case "guided":
     default:
       return {
-        showAdvancedSettings: false,
-        allowSplitChange: false,
-        allowMedMultiplier: false,
-        allowExclude: false,
-        allowSwap: false,
-        lockFullBody: true,
+        ...openControls,
         showCoachScript: true,
         showWhyDefaultOpen: true,
       };
@@ -122,14 +120,22 @@ export function buildCoachScript({ stage, session, completedCount, nextSession }
 
   const stageLine =
     stage.id === "guided"
-      ? "Guided mode: follow the list in order. Don’t add extra exercises yet."
+      ? "Guided mode: follow the list in order. Swap or exclude in Settings if a lift isn’t available."
       : stage.id === "building"
-        ? "Building mode: you may swap a lift if a machine is taken or it doesn’t feel right."
+        ? "Building mode: swap a lift if equipment is missing or it doesn’t feel right."
         : "Custom mode: adjust freely in Settings — keep MED targets in mind.";
+
+  const volumeLine = `About ${session.estimatedMinutes} minutes · ${compounds.length} main lifts${
+    isolations.length ? ` + ${isolations.length} support` : ""
+  }.`;
+  // Program sessions: lead with scheme / slot notes (wave, BBB, hypertrophy day)
+  const mission = session.schemeNotes
+    ? `${session.schemeNotes}. ${volumeLine} ${stageLine}`
+    : `${volumeLine} ${stageLine}`;
 
   return {
     headline: session.label,
-    mission: `About ${session.estimatedMinutes} minutes · ${compounds.length} main lifts${isolations.length ? ` + ${isolations.length} support` : ""}. ${stageLine}`,
+    mission,
     science:
       "Resistance training grows strength when you apply progressive overload and enough weekly hard sets, then recover. Compounds hit multiple muscles per minute (high ROI under time pressure). Isolation only fills gaps. Meta-analyses support ~1.6 g protein/kg/day and creatine 3–5 g/day as high-confidence aids; they don’t replace the sets.",
     steps,
@@ -140,9 +146,9 @@ export function buildCoachScript({ stage, session, completedCount, nextSession }
     }`,
     unlockHint:
       stage.id === "guided"
-        ? `Complete ${Math.max(0, COACH_STAGES.building.minSessions - completedCount)} more session(s) to unlock exercise swaps & exclusions — or stay Guided until you’re ready.`
+        ? "Exclude lifts you don’t have and change split anytime in Settings. Log hard sets so coaching notes get sharper as you bank sessions."
         : stage.id === "building"
-          ? `Complete ${Math.max(0, COACH_STAGES.custom.minSessions - completedCount)} more session(s) to unlock full Custom (split & volume), or force Custom in Settings when you feel back to baseline.`
+          ? "Keep logging hard sets. Split, volume, and exclusions are open in Settings whenever your schedule or gear changes."
           : "You’re in Custom. Drop what doesn’t work; keep what does. Rebuild plan after changes.",
   };
 }
