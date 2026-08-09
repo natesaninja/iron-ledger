@@ -166,7 +166,7 @@ function getCoach() {
 function effectiveSettings() {
   const { caps } = getCoach();
   const s = { ...state.settings };
-  // Guided/Building: force full-body MED so the app does the thinking
+  // Optional full-body lock (off by default so split preference always applies)
   if (caps.lockFullBody) {
     s.splitPreference = "full_body";
   }
@@ -1568,7 +1568,7 @@ function renderSettingsForm() {
   }
   const stageDetail = document.getElementById("coach-stage-detail");
   if (stageDetail) {
-    stageDetail.innerHTML = `${escapeHtml(stage.blurb)} Auto path: <strong>Guided</strong> (0–5) → <strong>Building</strong> (6–14) → <strong>Custom</strong> (15+). Quality gates use sessions with logged hard sets when available.`;
+    stageDetail.innerHTML = `${escapeHtml(stage.blurb)} Auto path: <strong>Guided</strong> (0–5) → <strong>Building</strong> (6–14) → <strong>Custom</strong> (15+) changes coaching tone only — exclude, swap, split, and volume stay available at every stage.`;
   }
   const deloadLbl = document.getElementById("deload-status");
   if (deloadLbl) {
@@ -1781,7 +1781,7 @@ const ONBOARD_STEPS = [
     title: "We do the thinking first",
     html: `
       <p class="hint"><strong>Iron Ledger</strong> builds commercial-gym sessions from evidence-based minimum effective dose: compounds first, recovery windows, weekly muscle coverage — so limited train days still count.</p>
-      <p class="hint" style="margin-top:0.65rem"><strong>Guided mode</strong> first: follow the coach and mark sessions done. Later you unlock swaps, then full Custom — keep what works, drop what doesn’t.</p>
+      <p class="hint" style="margin-top:0.65rem"><strong>Guided mode</strong> first for denser coaching. Exclude lifts you don’t have and change your split anytime in Settings — no session gate.</p>
       <p class="dim" style="margin-top:0.65rem">Updates install automatically when online. Never delete the Home Screen icon to update.</p>
     `,
   },
@@ -1796,7 +1796,7 @@ const ONBOARD_STEPS = [
         <label for="ob-minutes">Session length (minutes)</label>
         <input type="number" id="ob-minutes" min="30" max="90" step="5" value="55" />
       </div>
-      <p class="hint">Start Guided. Advanced knobs stay locked until you’ve banked sessions (or you choose Custom later).</p>
+      <p class="hint">Start Guided for coaching. Advanced knobs (split, exclude, volume) are open from day one.</p>
     `,
   },
   {
@@ -1807,7 +1807,7 @@ const ONBOARD_STEPS = [
         <button type="button" class="primary-btn" id="ob-empty">Start empty (recommended)</button>
         <button type="button" class="ghost-btn" id="ob-sample">Load sample schedule</button>
       </div>
-      <p class="dim" style="margin-top:0.75rem">Path: Guided (0–5) → Building (6–14) → Custom (15+). Log weights on Today so unlocks track real work. Science notes under lifts + Supps.</p>
+      <p class="dim" style="margin-top:0.75rem">Path: Guided (0–5) → Building (6–14) → Custom (15+) is coaching tone only. Log weights on Today for better insights. Science notes under lifts + Supps.</p>
     `,
   },
 ];

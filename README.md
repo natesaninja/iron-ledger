@@ -12,7 +12,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 ## Features (v16)
 
 - Invite-only unlock per device (optional)  
-- Progressive coach: Guided → Building → Custom (quality-gated by logged hard sets)  
+- Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
 - MED / OED / rough dose by feel  
 - **Set log** — weight × reps × RPE, +/− steppers, same-as-last, Done→rest, plate hint  
 - Rest timer with wake lock + stronger vibrate · skip reasons · time-box · 7-day deload  
