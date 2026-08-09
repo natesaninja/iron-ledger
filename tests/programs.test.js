@@ -13,6 +13,20 @@ describe("getProgram / listPrograms", () => {
     assert.equal(prog.slots.length, 4);
     assert.ok(prog.attribution);
   });
+
+  it("lists bodybuilding templates with slots + attribution", () => {
+    const list = listPrograms();
+    for (const id of ["ppl_hyper", "ul_hyper", "bro_classic"]) {
+      assert.ok(list.some((p) => p.id === id), `list includes ${id}`);
+      const prog = getProgram(id);
+      assert.ok(prog, id);
+      assert.ok(prog.slots.length >= 1, `${id} has slots`);
+      assert.ok(prog.attribution, `${id} attribution`);
+    }
+    assert.equal(getProgram("ppl_hyper").slots.length, 3);
+    assert.equal(getProgram("ul_hyper").slots.length, 4);
+    assert.equal(getProgram("bro_classic").slots.length, 5);
+  });
 });
 
 describe("assignSlotsForMonth", () => {
@@ -70,5 +84,41 @@ describe("buildProgramPlan", () => {
     if (main) {
       assert.notEqual(main.exerciseId, "bb_back_squat");
     }
+  });
+
+  for (const id of ["ppl_hyper", "ul_hyper", "bro_classic"]) {
+    it(`builds ≥1 session for ${id}`, () => {
+      const plan = buildProgramPlan(
+        ["2026-08-03", "2026-08-05", "2026-08-07"],
+        {
+          ...DEFAULT_SETTINGS,
+          trainingMode: "program",
+          activeProgramId: id,
+          equipment: applyEquipmentPreset("home_barbell"),
+        }
+      );
+      assert.ok(plan.sessions.length >= 1, `${id} sessions`);
+      assert.equal(plan.sessions[0].source, "program");
+      assert.equal(plan.sessions[0].programId, id);
+      assert.ok(plan.sessions[0].slotId);
+      assert.ok(plan.sessions[0].schemeNotes);
+      assert.ok(plan.sessions[0].exercises.length >= 1, `${id} has exercises`);
+      assert.equal(plan.meta.source, "program");
+      assert.equal(plan.meta.programId, id);
+    });
+  }
+
+  it("ppl_hyper labels first train day as Push", () => {
+    const plan = buildProgramPlan(
+      ["2026-08-03"],
+      {
+        ...DEFAULT_SETTINGS,
+        trainingMode: "program",
+        activeProgramId: "ppl_hyper",
+        equipment: applyEquipmentPreset("home_barbell"),
+      }
+    );
+    assert.equal(plan.sessions[0].slotId, "push");
+    assert.match(plan.sessions[0].label, /push/i);
   });
 });

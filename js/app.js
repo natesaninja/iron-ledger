@@ -76,7 +76,7 @@ import {
   applyEquipmentPreset,
   fullEquipment,
 } from "./equipment.js";
-import { buildProgramPlan } from "./programs.js";
+import { buildProgramPlan, listPrograms, getProgram } from "./programs.js";
 
 const APP_VERSION = "19.1";
 
@@ -1585,9 +1585,68 @@ function customTargetMuscleList() {
 function syncTrainingModePanels(mode) {
   const m = mode || document.getElementById("set-training-mode")?.value || "med";
   const customCard = document.getElementById("custom-targets-card");
-  const progWrap = document.getElementById("program-select-wrap");
+  const programsCard = document.getElementById("programs-card");
   if (customCard) customCard.hidden = m !== "custom";
-  if (progWrap) progWrap.hidden = m !== "program";
+  if (programsCard) programsCard.hidden = m !== "program";
+  if (m === "program") syncProgramDetailPanels();
+}
+
+/** Populate program catalog select once options exist. */
+function ensureProgramCatalogOptions() {
+  const sel = document.getElementById("set-active-program");
+  if (!sel) return;
+  const current = sel.value;
+  const catalog = listPrograms();
+  const opts = [`<option value="">Select a program…</option>`].concat(
+    catalog.map(
+      (p) =>
+        `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`
+    )
+  );
+  // Rebuild only when catalog ids change (avoids wiping on every paint if already good)
+  const existingIds = [...sel.querySelectorAll("option")]
+    .map((o) => o.value)
+    .filter(Boolean)
+    .join(",");
+  const nextIds = catalog.map((p) => p.id).join(",");
+  if (existingIds !== nextIds || sel.options.length < 2) {
+    sel.innerHTML = opts.join("");
+  }
+  if (current) sel.value = current;
+}
+
+function syncProgramDetailPanels() {
+  const sel = document.getElementById("set-active-program");
+  const id = sel?.value || "";
+  const prog = id ? getProgram(id) : null;
+  const attr = document.getElementById("program-attribution");
+  if (attr) {
+    attr.textContent = prog?.attribution || (id ? "" : "Pick a template to follow on your train days.");
+  }
+  const tmBox = document.getElementById("tm-fields");
+  if (tmBox) tmBox.hidden = !(prog && prog.needsTrainingMaxes);
+}
+
+function readTrainingMaxesFromForm() {
+  const keys = ["squat", "bench", "deadlift", "press"];
+  const out = { ...(state.settings.trainingMaxes || {}) };
+  for (const k of keys) {
+    const el = document.getElementById(`tm-${k}`);
+    if (!el) continue;
+    const v = el.value.trim() === "" ? null : +el.value;
+    out[k] = v != null && Number.isFinite(v) && v > 0 ? v : null;
+  }
+  return out;
+}
+
+function fillTrainingMaxesForm(tms) {
+  const map = tms || {};
+  for (const k of ["squat", "bench", "deadlift", "press"]) {
+    const el = document.getElementById(`tm-${k}`);
+    if (!el) continue;
+    const v = map[k];
+    el.value = v != null && Number.isFinite(+v) && +v > 0 ? String(v) : "";
+  }
 }
 
 function renderCustomTargetControls(targets) {
@@ -1658,11 +1717,13 @@ function renderSettingsForm() {
   if (nameEl) nameEl.value = s.displayName || "";
   const modeSel = document.getElementById("set-training-mode");
   if (modeSel) modeSel.value = s.trainingMode || "med";
+  ensureProgramCatalogOptions();
+  const progSel = document.getElementById("set-active-program");
+  if (progSel) progSel.value = s.activeProgramId || "";
+  fillTrainingMaxesForm(s.trainingMaxes);
   syncTrainingModePanels(s.trainingMode || "med");
   renderCustomTargetControls(s.customTargets);
   highlightCustomPreset(matchCustomPreset(s.customTargets));
-  const progSel = document.getElementById("set-active-program");
-  if (progSel) progSel.value = s.activeProgramId || "";
   document.getElementById("set-minutes").value = s.sessionMinutes;
   document.getElementById("set-split").value = s.splitPreference;
   document.getElementById("set-med").value = s.medMultiplier;
@@ -1836,6 +1897,7 @@ function saveSettingsFromForm() {
   if (progSel) {
     state.settings.activeProgramId = progSel.value || null;
   }
+  state.settings.trainingMaxes = readTrainingMaxesFromForm();
   // Always capture custom map from form (ignored by planner unless mode === custom)
   state.settings.customTargets = readCustomTargetsFromForm();
 
@@ -2095,6 +2157,9 @@ function initEvents() {
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
   document.getElementById("set-training-mode")?.addEventListener("change", (e) => {
     syncTrainingModePanels(e.target.value);
+  });
+  document.getElementById("set-active-program")?.addEventListener("change", () => {
+    syncProgramDetailPanels();
   });
   document.getElementById("custom-target-presets")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-ct-preset]");

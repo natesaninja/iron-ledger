@@ -114,6 +114,197 @@ const PROGRAMS = {
       },
     ],
   },
+
+  ppl_hyper: {
+    id: "ppl_hyper",
+    name: "Push / Pull / Legs (hypertrophy)",
+    attribution:
+      "Inspired by popular Push/Pull/Legs hypertrophy structures. Educational template only — not a substitute for any author’s full program.",
+    minDaysPerWeek: 3,
+    idealDaysPerWeek: 6,
+    needsTrainingMaxes: false,
+    rotation: "sequential",
+    slots: [
+      {
+        id: "push",
+        label: "Push",
+        focusHint: ["chest", "front_delts", "triceps", "side_delts"],
+        work: [
+          { pick: "pattern", pattern: "horizontal_push", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "vertical_push", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "horizontal_push", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "side_delts", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "triceps", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "chest", sets: 2, reps: "12-15" },
+        ],
+      },
+      {
+        id: "pull",
+        label: "Pull",
+        focusHint: ["lats", "upper_back", "biceps", "rear_delts"],
+        work: [
+          { pick: "pattern", pattern: "vertical_pull", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_pull", sets: 4, reps: "8-12" },
+          { pick: "pattern", pattern: "horizontal_pull", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "rear_delts", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "biceps", sets: 3, reps: "10-12" },
+          { pick: "pattern", pattern: "isolation", primary: "lats", sets: 2, reps: "12-15" },
+        ],
+      },
+      {
+        id: "legs",
+        label: "Legs",
+        focusHint: ["quads", "hamstrings", "glutes", "calves"],
+        work: [
+          { pick: "pattern", pattern: "squat", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "hinge", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "squat", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "hamstrings", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "quads", sets: 2, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "calves", sets: 3, reps: "10-15" },
+        ],
+      },
+    ],
+  },
+
+  ul_hyper: {
+    id: "ul_hyper",
+    name: "Upper / Lower hypertrophy",
+    attribution:
+      "Inspired by common Upper/Lower hypertrophy templates. Educational summary only — not a commercial program or book reprint.",
+    minDaysPerWeek: 3,
+    idealDaysPerWeek: 4,
+    needsTrainingMaxes: false,
+    rotation: "sequential",
+    slots: [
+      {
+        id: "upper_a",
+        label: "Upper A",
+        focusHint: ["chest", "lats", "upper_back", "side_delts"],
+        work: [
+          { pick: "pattern", pattern: "horizontal_push", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "vertical_pull", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_pull", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "vertical_push", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "side_delts", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "biceps", sets: 2, reps: "10-12" },
+        ],
+      },
+      {
+        id: "lower_a",
+        label: "Lower A",
+        focusHint: ["quads", "glutes", "hamstrings", "calves"],
+        work: [
+          { pick: "pattern", pattern: "squat", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "hinge", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "squat", sets: 3, reps: "10-12" },
+          { pick: "pattern", pattern: "isolation", primary: "hamstrings", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "calves", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "core", sets: 2, reps: "12-15" },
+        ],
+      },
+      {
+        id: "upper_b",
+        label: "Upper B",
+        focusHint: ["chest", "upper_back", "front_delts", "triceps"],
+        work: [
+          { pick: "pattern", pattern: "vertical_push", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_pull", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_push", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "vertical_pull", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "rear_delts", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "triceps", sets: 2, reps: "10-15" },
+        ],
+      },
+      {
+        id: "lower_b",
+        label: "Lower B",
+        focusHint: ["hamstrings", "glutes", "quads", "calves"],
+        work: [
+          { pick: "pattern", pattern: "hinge", sets: 4, reps: "5-8" },
+          { pick: "pattern", pattern: "squat", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "hinge", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "quads", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "calves", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "core", sets: 2, reps: "12-15" },
+        ],
+      },
+    ],
+  },
+
+  bro_classic: {
+    id: "bro_classic",
+    name: "Classic body-part split",
+    attribution:
+      "Inspired by classic bodybuilding body-part (“bro”) splits. Educational template only — not affiliated with any coach’s commercial program.",
+    minDaysPerWeek: 4,
+    idealDaysPerWeek: 5,
+    needsTrainingMaxes: false,
+    rotation: "sequential",
+    slots: [
+      {
+        id: "chest",
+        label: "Chest",
+        focusHint: ["chest", "triceps", "front_delts"],
+        work: [
+          { pick: "pattern", pattern: "horizontal_push", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_push", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "horizontal_push", sets: 3, reps: "10-12" },
+          { pick: "pattern", pattern: "isolation", primary: "chest", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "triceps", sets: 3, reps: "10-15" },
+        ],
+      },
+      {
+        id: "back",
+        label: "Back",
+        focusHint: ["lats", "upper_back", "biceps"],
+        work: [
+          { pick: "pattern", pattern: "vertical_pull", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_pull", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "horizontal_pull", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "lats", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "biceps", sets: 3, reps: "10-12" },
+        ],
+      },
+      {
+        id: "shoulders",
+        label: "Shoulders",
+        focusHint: ["front_delts", "side_delts", "rear_delts"],
+        work: [
+          { pick: "pattern", pattern: "vertical_push", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "isolation", primary: "side_delts", sets: 4, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "rear_delts", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "side_delts", sets: 3, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "triceps", sets: 2, reps: "10-15" },
+        ],
+      },
+      {
+        id: "legs",
+        label: "Legs",
+        focusHint: ["quads", "hamstrings", "glutes", "calves"],
+        work: [
+          { pick: "pattern", pattern: "squat", sets: 4, reps: "6-10" },
+          { pick: "pattern", pattern: "hinge", sets: 3, reps: "8-12" },
+          { pick: "pattern", pattern: "squat", sets: 3, reps: "10-12" },
+          { pick: "pattern", pattern: "isolation", primary: "hamstrings", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "quads", sets: 2, reps: "12-15" },
+          { pick: "pattern", pattern: "isolation", primary: "calves", sets: 3, reps: "10-15" },
+        ],
+      },
+      {
+        id: "arms",
+        label: "Arms",
+        focusHint: ["biceps", "triceps"],
+        work: [
+          { pick: "pattern", pattern: "isolation", primary: "biceps", sets: 4, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "triceps", sets: 4, reps: "8-12" },
+          { pick: "pattern", pattern: "isolation", primary: "biceps", sets: 3, reps: "10-12" },
+          { pick: "pattern", pattern: "isolation", primary: "triceps", sets: 3, reps: "10-15" },
+          { pick: "pattern", pattern: "isolation", primary: "side_delts", sets: 2, reps: "12-15" },
+        ],
+      },
+    ],
+  },
 };
 
 /** @returns {ProgramMeta[]} */
@@ -318,6 +509,41 @@ function gapEntry(label, detail) {
   };
 }
 
+/**
+ * Resolve a fixed work / accessory slot entry (pattern pick or fixed exerciseId).
+ * @returns {{ ex: object|null, sets: number, reps: string, why: string }|null}
+ */
+function resolveWorkItem(spec, settings, usedIds, dose, whyPrefix = "Program work") {
+  let ex = null;
+  if (spec.pick === "pattern") {
+    ex = pickByPattern(spec, settings, usedIds);
+  } else if (spec.exerciseId) {
+    const r = resolveExercise(spec.exerciseId, settings, usedIds);
+    ex = r.ex;
+  }
+  if (!ex) return null;
+  const sets = scaleAccessorySets(spec.sets || ex.sets, dose);
+  const detail =
+    spec.pattern != null
+      ? `${spec.pattern}${spec.primary ? " · " + spec.primary : ""}`
+      : spec.exerciseId || "";
+  return {
+    ex,
+    sets,
+    reps: spec.reps || ex.reps || "8-12",
+    why: `${whyPrefix}${detail ? ` (${detail})` : ""}.`,
+  };
+}
+
+function sessionBudget(settings, dose) {
+  return (
+    Math.min(
+      dose?.sessionMinutes || settings.sessionMinutes || 55,
+      settings.timeBoxMinutes > 0 ? settings.timeBoxMinutes : settings.sessionMinutes || 55
+    ) - 5
+  );
+}
+
 function buildProgramSession(day, slot, program, settings, waveIndex, dose) {
   const unit = settings.unitLabel || "lb";
   const wave = SCHEME_531[waveIndex % SCHEME_531.length];
@@ -326,99 +552,91 @@ function buildProgramSession(day, slot, program, settings, waveIndex, dose) {
   const usedIds = new Set();
   const exercises = [];
   const notes = [];
+  const isBbbStyle = !!(slot.main || slot.supplemental);
+  const workList = slot.work || [];
+  const budget = sessionBudget(settings, dose);
 
   const tmKey = slot.main?.tmKey || SLOT_TM_KEY[slot.id];
   const tm = tmKey != null ? tms[tmKey] : null;
 
-  // --- Main 5/3/1 ---
-  if (slot.main) {
-    const { ex, substituted } = resolveExercise(slot.main.exerciseId, settings, usedIds);
-    if (ex) {
-      usedIds.add(ex.id);
-      const { sets, reps } = scheme531Display(wave, tm, unit);
-      exercises.push(
-        makeExEntry(
-          ex,
-          sets,
-          reps,
-          substituted
-            ? `Substituted for ${slot.main.exerciseId} (equipment). Main 5/3/1 work.`
-            : `Main 5/3/1 work · ${wave.label} wave.`
+  // --- Bodybuilding fixed schemes (work[]) ---
+  if (!isBbbStyle && workList.length) {
+    for (const item of workList) {
+      let minutes = exercises.reduce((s, e) => s + (e.minutes || 0), 0);
+      if (minutes >= budget - 4) break;
+      const resolved = resolveWorkItem(item, settings, usedIds, dose, "Hypertrophy template");
+      if (!resolved) continue;
+      usedIds.add(resolved.ex.id);
+      exercises.push(makeExEntry(resolved.ex, resolved.sets, resolved.reps, resolved.why));
+    }
+  } else {
+    // --- Main 5/3/1 ---
+    if (slot.main) {
+      const { ex, substituted } = resolveExercise(slot.main.exerciseId, settings, usedIds);
+      if (ex) {
+        usedIds.add(ex.id);
+        const { sets, reps } = scheme531Display(wave, tm, unit);
+        exercises.push(
+          makeExEntry(
+            ex,
+            sets,
+            reps,
+            substituted
+              ? `Substituted for ${slot.main.exerciseId} (equipment). Main 5/3/1 work.`
+              : `Main 5/3/1 work · ${wave.label} wave.`
+          )
+        );
+      } else {
+        exercises.push(
+          gapEntry(
+            slot.main.exerciseId,
+            "Main lift unavailable with current equipment. Add equipment or swap program."
+          )
+        );
+        notes.push("main lift missing equipment");
+      }
+    }
+
+    // --- BBB supplemental (skip or lighten on deload / rough) ---
+    const skipBbb = wave.id === "deload" || dose?.id === "rough";
+    if (slot.supplemental && !skipBbb) {
+      // Prefer same exercise as main if it was used; else resolve again
+      const prefId =
+        exercises[0] && !exercises[0].isGap ? exercises[0].exerciseId : slot.supplemental.exerciseId;
+      // Supplemental is same lift pattern — allow re-using main exercise id (BBB is same movement)
+      const baseId = slot.supplemental.exerciseId;
+      let ex =
+        EXERCISES.find((e) => e.id === prefId) &&
+        isExerciseAvailable(
+          EXERCISES.find((e) => e.id === prefId),
+          settings.equipment
         )
-      );
-    } else {
-      exercises.push(
-        gapEntry(
-          slot.main.exerciseId,
-          "Main lift unavailable with current equipment. Add equipment or swap program."
-        )
-      );
-      notes.push("main lift missing equipment");
+          ? EXERCISES.find((e) => e.id === prefId)
+          : null;
+      if (!ex) {
+        const r = resolveExercise(baseId, settings, new Set());
+        ex = r.ex;
+      }
+      if (ex) {
+        const { sets, reps } = schemeBbbDisplay(tm, bbbPct, unit);
+        exercises.push(
+          makeExEntry(ex, sets, reps, `BBB supplemental 5×10 @ ~${Math.round(bbbPct * 100)}% TM.`)
+        );
+      }
+    } else if (slot.supplemental && wave.id === "deload") {
+      notes.push("BBB skipped on deload week");
     }
   }
 
-  // --- BBB supplemental (skip or lighten on deload / rough) ---
-  const skipBbb = wave.id === "deload" || dose?.id === "rough";
-  if (slot.supplemental && !skipBbb) {
-    // Prefer same exercise as main if it was used; else resolve again
-    const prefId = exercises[0] && !exercises[0].isGap ? exercises[0].exerciseId : slot.supplemental.exerciseId;
-    // Supplemental is same lift pattern — allow re-using main exercise id (BBB is same movement)
-    const baseId = slot.supplemental.exerciseId;
-    let ex =
-      EXERCISES.find((e) => e.id === prefId) &&
-      isExerciseAvailable(
-        EXERCISES.find((e) => e.id === prefId),
-        settings.equipment
-      )
-        ? EXERCISES.find((e) => e.id === prefId)
-        : null;
-    if (!ex) {
-      const r = resolveExercise(baseId, settings, new Set());
-      ex = r.ex;
-    }
-    if (ex) {
-      const { sets, reps } = schemeBbbDisplay(tm, bbbPct, unit);
-      // Time-box: keep main; may drop BBB later if over budget — always include for now
-      exercises.push(
-        makeExEntry(ex, sets, reps, `BBB supplemental 5×10 @ ~${Math.round(bbbPct * 100)}% TM.`)
-      );
-    }
-  } else if (slot.supplemental && wave.id === "deload") {
-    notes.push("BBB skipped on deload week");
-  }
-
-  // --- Accessories ---
+  // --- Accessories (BBB slots; BB templates use work[] only) ---
   const accList = slot.accessories || [];
-  const budget =
-    Math.min(
-      dose?.sessionMinutes || settings.sessionMinutes || 55,
-      settings.timeBoxMinutes > 0 ? settings.timeBoxMinutes : settings.sessionMinutes || 55
-    ) - 5;
-
   for (const acc of accList) {
     let minutes = exercises.reduce((s, e) => s + (e.minutes || 0), 0);
     if (minutes >= budget - 4) break;
-
-    if (acc.pick === "pattern") {
-      const ex = pickByPattern(acc, settings, usedIds);
-      if (!ex) continue;
-      usedIds.add(ex.id);
-      const sets = scaleAccessorySets(acc.sets, dose);
-      exercises.push(
-        makeExEntry(
-          ex,
-          sets,
-          acc.reps || ex.reps,
-          `Program accessory (${acc.pattern}${acc.primary ? " · " + acc.primary : ""}).`
-        )
-      );
-    } else if (acc.exerciseId) {
-      const { ex } = resolveExercise(acc.exerciseId, settings, usedIds);
-      if (!ex) continue;
-      usedIds.add(ex.id);
-      const sets = scaleAccessorySets(acc.sets || ex.sets, dose);
-      exercises.push(makeExEntry(ex, sets, acc.reps || ex.reps, "Program accessory."));
-    }
+    const resolved = resolveWorkItem(acc, settings, usedIds, dose, "Program accessory");
+    if (!resolved) continue;
+    usedIds.add(resolved.ex.id);
+    exercises.push(makeExEntry(resolved.ex, resolved.sets, resolved.reps, resolved.why));
   }
 
   // Drop gap-only noise from estimated minutes
@@ -426,11 +644,19 @@ function buildProgramSession(day, slot, program, settings, waveIndex, dose) {
     .filter((e) => !e.isGap)
     .reduce((s, e) => s + (e.minutes || 0), 0);
 
-  const schemeNotes = [
-    `Week wave: ${wave.label}`,
-    `BBB 5×10 @ ${Math.round(bbbPct * 100)}% TM`,
-    tm != null && Number.isFinite(+tm) && +tm > 0 ? `TM ${tm} ${unit}` : "TM not set",
-  ].join(" · ");
+  let schemeNotes;
+  if (isBbbStyle) {
+    schemeNotes = [
+      `Week wave: ${wave.label}`,
+      `BBB 5×10 @ ${Math.round(bbbPct * 100)}% TM`,
+      tm != null && Number.isFinite(+tm) && +tm > 0 ? `TM ${tm} ${unit}` : "TM not set",
+    ].join(" · ");
+  } else {
+    schemeNotes = [
+      `${slot.label} · hypertrophy (fixed sets/reps)`,
+      `${exercises.filter((e) => !e.isGap).length} movements`,
+    ].join(" · ");
+  }
 
   const rationale = [
     `${program.name} · ${slot.label}.`,

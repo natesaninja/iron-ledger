@@ -125,9 +125,17 @@ export function buildCoachScript({ stage, session, completedCount, nextSession }
         ? "Building mode: swap a lift if equipment is missing or it doesn’t feel right."
         : "Custom mode: adjust freely in Settings — keep MED targets in mind.";
 
+  const volumeLine = `About ${session.estimatedMinutes} minutes · ${compounds.length} main lifts${
+    isolations.length ? ` + ${isolations.length} support` : ""
+  }.`;
+  // Program sessions: lead with scheme / slot notes (wave, BBB, hypertrophy day)
+  const mission = session.schemeNotes
+    ? `${session.schemeNotes}. ${volumeLine} ${stageLine}`
+    : `${volumeLine} ${stageLine}`;
+
   return {
     headline: session.label,
-    mission: `About ${session.estimatedMinutes} minutes · ${compounds.length} main lifts${isolations.length ? ` + ${isolations.length} support` : ""}. ${stageLine}`,
+    mission,
     science:
       "Resistance training grows strength when you apply progressive overload and enough weekly hard sets, then recover. Compounds hit multiple muscles per minute (high ROI under time pressure). Isolation only fills gaps. Meta-analyses support ~1.6 g protein/kg/day and creatine 3–5 g/day as high-confidence aids; they don’t replace the sets.",
     steps,
