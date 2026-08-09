@@ -6,7 +6,8 @@ import { isExerciseAvailable } from "./equipment.js";
 
 const MUSCLE_MAP = Object.fromEntries(MUSCLES.map((m) => [m.id, m]));
 
-function weekKey(iso) {
+/** Monday-start ISO date for the calendar week containing `iso`. */
+export function weekKey(iso) {
   const d = parseISO(iso);
   const day = d.getDay(); // 0 Sun
   const diff = day === 0 ? -6 : 1 - day; // Monday start

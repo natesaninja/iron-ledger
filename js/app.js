@@ -76,6 +76,7 @@ import {
   applyEquipmentPreset,
   fullEquipment,
 } from "./equipment.js";
+import { buildProgramPlan } from "./programs.js";
 
 const APP_VERSION = "19.1";
 
@@ -216,11 +217,17 @@ function rebuild() {
     const end = toISO(new Date(d0.getFullYear(), d0.getMonth() + 1, 1));
     horizon = { start, end };
   }
-  plan = buildPlan(days, effectiveSettings(), {
+  const s = effectiveSettings();
+  const planHorizon = {
     ...horizon,
     dayDose: effectiveDayDose(),
     doseProfiles: DOSE_PROFILES,
-  });
+  };
+  if (s.trainingMode === "program" && s.activeProgramId) {
+    plan = buildProgramPlan(days, s, planHorizon);
+  } else {
+    plan = buildPlan(days, s, planHorizon);
+  }
 
   // Merge completed flags (match by exercise id when dose rebuilds the list)
   for (const s of plan.sessions) {
