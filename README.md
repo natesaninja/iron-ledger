@@ -20,7 +20,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 - MED / OED / rough dose by feel  
 - **Set log** — weight × reps × RPE, +/− steppers, same-as-last, Done→rest, plate hint  
 - Rest timer with wake lock + stronger vibrate · skip reasons · time-box · 7-day deload  
-- **Session summary** on complete → MacroLedger handoff (sets, dose, muscles, bodyweight)  
+- **Session summary** on complete → MacroLedger handoff (sets, dose, muscles, msets, mode/program, bodyweight; iPhone open fallback)  
 - **Cover** — planned vs logged · insights (volume, stagnation, push/pull, deload suggest) · history · PR board  
 - **Supps** — evidence browser + personal stack + daily check-in  
 - Onboarding: where you train → how you train → mark Plan days  

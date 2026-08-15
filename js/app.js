@@ -68,6 +68,7 @@ import {
   seedSetsFromSuggestion,
   plateBreakdown,
   buildSessionSummary,
+  buildMacroHandoffParams,
   buildCoverInsights,
 } from "./logging.js";
 import {
@@ -78,7 +79,7 @@ import {
 } from "./equipment.js";
 import { buildProgramPlan, listPrograms, getProgram } from "./programs.js";
 
-const APP_VERSION = "20";
+const APP_VERSION = "20.1";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -1136,37 +1137,43 @@ function renderStackCheckinBanner() {
 }
 
 /**
- * Deep-link into MacroLedger with session minutes + name + volume tags.
- * MacroLedger reads ?iron=1&date=&min=&name=&auto=1 (extra params are forward-compatible).
+ * MacroLedger reads ?iron=1&date=&min=&name=&auto=1 (+ mode, program, msets, label, …).
  */
 function openMacroLedgerHandoff(session, { auto = true, summary = null } = {}) {
   if (!session) return;
   const dayLog = state.logs?.[session.day];
-  const sum = summary || buildSessionSummary(session, dayLog);
-  const minutes = Math.max(1, Math.round(sum.minutes || session.estimatedMinutes || 45));
-  const name = `Iron Ledger · ${session.label || "Strength"}`;
+  const params = buildMacroHandoffParams(session, dayLog, {
+    settings: state.settings,
+    auto,
+    summary,
+  });
   const url = new URL(MACROLEDGER_URL);
-  url.searchParams.set("iron", "1");
-  url.searchParams.set("date", session.day);
-  url.searchParams.set("min", String(minutes));
-  url.searchParams.set("name", name);
-  url.searchParams.set("sets", String(sum.loggedHard || 0));
-  url.searchParams.set("dose", sum.doseId || session.doseId || "med");
-  const bw = +state.settings.bodyweightKg;
-  if (bw >= 30) url.searchParams.set("bw", String(bw));
-  const muscles = [
-    ...new Set((session.exercises || []).flatMap((e) => e.primary || [])),
-  ].slice(0, 8);
-  if (muscles.length) url.searchParams.set("muscles", muscles.join(","));
-  if (auto) url.searchParams.set("auto", "1");
+  for (const [k, v] of Object.entries(params)) {
+    if (v != null && v !== "") url.searchParams.set(k, String(v));
+  }
   try {
-    sessionStorage.setItem("il_last_macro_handoff", `${session.day}:${minutes}`);
+    sessionStorage.setItem(
+      "il_last_macro_handoff",
+      `${params.date || ""}:${params.min || ""}`
+    );
   } catch {
     /* ok */
   }
-  window.open(url.toString(), "_blank", "noopener,noreferrer");
+  const href = url.toString();
+  // iPhone often blocks window.open from non-gesture paths; try popup then navigate.
+  let opened = null;
+  try {
+    opened = window.open(href, "_blank", "noopener,noreferrer");
+  } catch {
+    opened = null;
+  }
+  if (!opened || opened.closed) {
+    window.location.href = href;
+    return;
+  }
   toast("Opening MacroLedger…");
 }
+
 
 function saveSessionProgress(session) {
   const byExerciseId = {};

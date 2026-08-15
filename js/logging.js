@@ -256,6 +256,18 @@ export function buildSessionSummary(session, dayLog) {
     }
   }
   const pct = planned > 0 ? Math.round((loggedHard / planned) * 100) : 0;
+  /** Primary-muscle hard-set counts from this session’s logs (for Macro handoff). */
+  const muscleHard = {};
+  for (const ex of session?.exercises || []) {
+    const exLog = dayLog?.exercises?.[ex.exerciseId];
+    const hardN = (exLog?.sets || []).filter(
+      (s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)
+    ).length;
+    if (!hardN) continue;
+    for (const m of ex.primary || []) {
+      muscleHard[m] = (muscleHard[m] || 0) + hardN;
+    }
+  }
   return {
     day: session?.day,
     label: session?.label || "Session",
@@ -266,7 +278,68 @@ export function buildSessionSummary(session, dayLog) {
     pctOfPlan: pct,
     lifts,
     doseId: session?.doseId || "med",
+    muscleHard,
   };
+}
+
+/**
+ * Query params for MacroLedger deep-link after a session.
+ * Macro reads: iron, date, min, name, sets, dose, muscles, msets, mode, program, label, bw, auto
+ *
+ * @param {object} session
+ * @param {object|null} dayLog
+ * @param {object} [opts]
+ * @param {object} [opts.settings]
+ * @param {boolean} [opts.auto]
+ * @param {object|null} [opts.summary] prebuilt buildSessionSummary
+ * @returns {Record<string, string>}
+ */
+export function buildMacroHandoffParams(session, dayLog, opts = {}) {
+  if (!session) return {};
+  const sum = opts.summary || buildSessionSummary(session, dayLog);
+  const settings = opts.settings || {};
+  const minutes = Math.max(1, Math.round(sum.minutes || session.estimatedMinutes || 45));
+  const name = `Iron Ledger · ${session.label || "Strength"}`;
+  const params = {
+    iron: "1",
+    date: String(session.day || "").slice(0, 10),
+    min: String(minutes),
+    name,
+    sets: String(sum.loggedHard || 0),
+    dose: String(sum.doseId || session.doseId || "med"),
+  };
+  if (opts.auto !== false) params.auto = "1";
+
+  const label = session.label || sum.label;
+  if (label) params.label = label;
+
+  const mode = settings.trainingMode || "med";
+  params.mode = mode;
+  if (mode === "program" && settings.activeProgramId) {
+    params.program = String(settings.activeProgramId);
+  }
+  if (session.programId) params.program = String(session.programId);
+  if (session.slotId) params.slot = String(session.slotId);
+  if (session.source) params.source = String(session.source);
+
+  const bw = +settings.bodyweightKg;
+  if (bw >= 30 && bw <= 250) params.bw = String(bw);
+
+  const muscles = [
+    ...new Set((session.exercises || []).flatMap((e) => e.primary || [])),
+  ].slice(0, 8);
+  if (muscles.length) params.muscles = muscles.join(",");
+
+  const mh = sum.muscleHard || {};
+  const msets = Object.entries(mh)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([id, n]) => `${id}:${n}`)
+    .join(",");
+  if (msets) params.msets = msets;
+
+  return params;
 }
 
 /**

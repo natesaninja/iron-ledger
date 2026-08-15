@@ -6,6 +6,7 @@ import {
   suggestNext,
   plateBreakdown,
   buildSessionSummary,
+  buildMacroHandoffParams,
   detectStagnation,
   countMissedSessions,
   buildCoverInsights,
@@ -111,6 +112,50 @@ describe("buildSessionSummary", () => {
     assert.equal(s.plannedSets, 6);
     assert.equal(s.loggedHard, 2);
     assert.equal(s.lifts.length, 2);
+    assert.equal(s.muscleHard.chest, 2);
+  });
+});
+
+describe("buildMacroHandoffParams", () => {
+  it("includes mode, program, msets, and bw", () => {
+    const session = {
+      day: "2026-08-01",
+      label: "Squat + BBB",
+      estimatedMinutes: 55,
+      doseId: "med",
+      source: "program",
+      programId: "bbb_531",
+      slotId: "squat_day",
+      exercises: [{ exerciseId: "bb_bench", name: "Bench", sets: 3, primary: ["chest"] }],
+    };
+    const dayLog = {
+      exercises: {
+        bb_bench: {
+          sets: [
+            { weight: 135, reps: 5, hard: true },
+            { weight: 135, reps: 5, hard: true },
+          ],
+        },
+      },
+    };
+    const p = buildMacroHandoffParams(session, dayLog, {
+      settings: {
+        trainingMode: "program",
+        activeProgramId: "bbb_531",
+        bodyweightKg: 82,
+      },
+      auto: true,
+    });
+    assert.equal(p.iron, "1");
+    assert.equal(p.auto, "1");
+    assert.equal(p.mode, "program");
+    assert.equal(p.program, "bbb_531");
+    assert.equal(p.slot, "squat_day");
+    assert.equal(p.sets, "2");
+    assert.equal(p.bw, "82");
+    assert.match(p.msets, /chest:2/);
+    assert.equal(p.muscles, "chest");
+    assert.equal(p.label, "Squat + BBB");
   });
 });
 
