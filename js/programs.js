@@ -783,6 +783,12 @@ export function buildProgramPlan(trainingDays, settings, horizon = {}) {
     }
   }
 
+  const under = MUSCLES.filter(
+    (m) => m.tier === "primary" && (coverage[m.id] || 0) < (targets[m.id] || 0) * 0.7
+  ).map((m) => m.name);
+
+  const slotIds = [...new Set(sessions.map((s) => s.slotId).filter(Boolean))];
+
   return {
     sessions,
     coverage,
@@ -793,10 +799,12 @@ export function buildProgramPlan(trainingDays, settings, horizon = {}) {
       trainingDays: days.length,
       sessionMinutes: s.sessionMinutes,
       splitPreference: s.splitPreference,
-      underCoveredPrimaries: [],
+      underCoveredPrimaries: under,
       medMultiplier: s.medMultiplier,
       source: "program",
       programId: program.id,
+      programName: program.name,
+      slotIds,
     },
   };
 }

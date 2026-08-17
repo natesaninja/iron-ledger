@@ -9,18 +9,20 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
 **Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
 
-## Features (v21)
+## Features (v22)
 
 - Invite-only unlock per device (optional)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
-- **Equipment** — commercial gym or home presets (barbell / dumbbells / minimal); filters planner, swaps, and excludes  
+- **Equipment** — commercial gym or home presets; expanded **home-gym** library (goblet, floor press, bands, BW)  
 - **Training modes** — MED Auto (coverage-driven), Programs (fixed templates), Custom (weekly muscle targets)  
 - **Programs** — educational templates: 5/3/1 BBB, PPL hypertrophy, Upper/Lower, classic bro split  
+- **Program Cover** — adherence (days done/missed), slot mix, planned primary gaps  
 - **Custom targets** — emphasize push/pull/legs/arms; planner rebuilds sessions around your map  
 - MED / OED / rough dose by feel  
 - **Set log** — weight × reps × RPE, +/− steppers, same-as-last, Done→rest, plate hint  
-- **Feel adapt** — Easy / Right / Hard mid-session: +/− sets on that lift, rebalance later work so muscle coverage still lands  
-
+- **Feel adapt** — Easy / Right / Hard (+ RPE suggestion highlight)  
+- **Session coverage check** — end-of-session muscle light list + feel adjustment recap  
+- **TM from logs** — suggest 5/3/1 training maxes from recent hard sets  
 - Rest timer with wake lock + stronger vibrate · skip reasons · time-box · 7-day deload  
 - **Session summary** on complete → MacroLedger handoff (sets, dose, muscles, msets, mode/program, bodyweight; iPhone open fallback)  
 - **Cover** — planned vs logged · insights (volume, stagnation, push/pull, deload suggest) · history · PR board  
