@@ -78,8 +78,15 @@ import {
   fullEquipment,
 } from "./equipment.js";
 import { buildProgramPlan, listPrograms, getProgram } from "./programs.js";
+import {
+  applyFeelAdapt,
+  syncLogSetsToPlan,
+  feelFromRpe,
+  avgHardRpe,
+  FEEL,
+} from "./adapt.js";
 
-const APP_VERSION = "20.1";
+const APP_VERSION = "21";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -137,6 +144,7 @@ function ensureSeeded() {
   if (!Array.isArray(state.myStack)) state.myStack = [];
   if (!state.logs || typeof state.logs !== "object" || Array.isArray(state.logs)) state.logs = {};
   if (!state.stackCheckins || typeof state.stackCheckins !== "object") state.stackCheckins = {};
+  if (!state.sessionAdapt || typeof state.sessionAdapt !== "object") state.sessionAdapt = {};
   if (state.deloadUntil === undefined) state.deloadUntil = null;
   if (state.onboardingComplete == null) state.onboardingComplete = false;
   if (state.lastBackupAt === undefined) state.lastBackupAt = null;
@@ -254,8 +262,83 @@ function rebuild() {
         });
       }
     }
+    applySessionAdaptToPlan(s);
   }
   renderAll();
+}
+
+/** Re-apply saved Easy/Hard set changes onto a rebuilt session. */
+function applySessionAdaptToPlan(session) {
+  const pack = state.sessionAdapt?.[session.day];
+  if (!pack?.exercises) return;
+  for (const ex of session.exercises || []) {
+    const a = pack.exercises[ex.exerciseId];
+    if (!a) continue;
+    if (a.plannedSetsBase != null) ex.plannedSetsBase = a.plannedSetsBase;
+    if (a.sets != null && +a.sets > 0) ex.sets = +a.sets;
+    if (a.lastFeel) ex.lastFeel = a.lastFeel;
+    if (a.adaptNote) ex.adaptNote = a.adaptNote;
+  }
+  if (Array.isArray(pack.adaptLog)) session.adaptLog = [...pack.adaptLog];
+}
+
+function saveSessionAdapt(session) {
+  if (!session?.day) return;
+  state.sessionAdapt = state.sessionAdapt || {};
+  const exercises = {};
+  for (const ex of session.exercises || []) {
+    if (ex.lastFeel || ex.plannedSetsBase != null || ex.adaptNote) {
+      exercises[ex.exerciseId] = {
+        sets: +ex.sets || 0,
+        lastFeel: ex.lastFeel || null,
+        plannedSetsBase: ex.plannedSetsBase ?? null,
+        adaptNote: ex.adaptNote || null,
+      };
+    }
+  }
+  state.sessionAdapt[session.day] = {
+    exercises,
+    adaptLog: [...(session.adaptLog || [])],
+    updatedAt: new Date().toISOString(),
+  };
+  persist();
+}
+
+/**
+ * Rate how a lift felt → add/drop sets and rebalance remaining work.
+ * @param {'easy'|'right'|'hard'} feel
+ */
+function rateExerciseFeel(session, exerciseIndex, feel) {
+  saveExerciseLogFromDom(session, exerciseIndex, { silent: true });
+  const box = +state.settings.timeBoxMinutes || 0;
+  const result = applyFeelAdapt(session, exerciseIndex, feel, {
+    timeBoxMinutes: box,
+    estimatedMinutes: session.estimatedMinutes,
+  });
+  // Write back onto the live plan session object
+  const live = plan?.sessions?.find((s) => s.day === session.day) || session;
+  live.exercises = result.session.exercises;
+  live.adaptLog = result.session.adaptLog;
+  live.estimatedMinutes = result.session.estimatedMinutes;
+  if (result.delta !== 0 || result.rebalanced.length) {
+    // Pad set logs for any exercise whose planned count rose
+    for (const ex of live.exercises) {
+      const log = getExLog(live.day, ex.exerciseId);
+      log.sets = syncLogSetsToPlan(log.sets, ex.sets);
+    }
+    // Also pad rebalanced targets
+    for (const r of result.rebalanced) {
+      const ex = live.exercises[r.index];
+      if (!ex) continue;
+      const log = getExLog(live.day, ex.exerciseId);
+      log.sets = syncLogSetsToPlan(log.sets, ex.sets);
+    }
+  }
+  saveSessionAdapt(live);
+  saveSessionProgress(live);
+  toast(result.message);
+  renderSessionCard(live);
+  renderToday();
 }
 
 function doseForDay(iso) {
@@ -721,7 +804,9 @@ function renderSessionCard(session) {
       <button type="button" class="ex-check" data-toggle="${i}" aria-label="Mark done">${ex.done ? "✓" : ""}</button>
       <div class="ex-main">
         <div class="ex-name">${escapeHtml(ex.name)}</div>
-        <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}</div>
+        <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}${
+          ex.lastFeel ? ` · <span class="feel-chip feel-${escapeHtml(ex.lastFeel)}">${escapeHtml(ex.lastFeel)}</span>` : ""
+        }</div>
         ${schemeLine}
         <div class="set-log" data-ex-log="${i}">
           <div class="set-head"><span></span><span>Load</span><span></span><span>Reps</span><span>RPE</span><span></span></div>
@@ -732,6 +817,15 @@ function renderSessionCard(session) {
             <button type="button" class="ghost-btn tiny" data-add-set="${i}">+ Set</button>
             <button type="button" class="ghost-btn tiny" data-rest="${restSec}" data-ex-rest="${i}">Rest ${restSec >= 60 ? restSec / 60 + "m" : restSec + "s"}</button>
             <button type="button" class="ghost-btn tiny" data-save-log="${i}">Save</button>
+          </div>
+          <div class="feel-row" data-feel-row="${i}">
+            <span class="feel-label">How did it feel?</span>
+            <div class="feel-btns">
+              <button type="button" class="feel-btn ${ex.lastFeel === "easy" ? "is-on" : ""}" data-feel="easy" data-feel-ex="${i}" title="Easier than expected — add a set if room">Easy</button>
+              <button type="button" class="feel-btn ${ex.lastFeel === "right" ? "is-on" : ""}" data-feel="right" data-feel-ex="${i}" title="On target — keep the plan">Right</button>
+              <button type="button" class="feel-btn ${ex.lastFeel === "hard" ? "is-on" : ""}" data-feel="hard" data-feel-ex="${i}" title="Heavy grind — drop a set, shift volume later">Hard</button>
+            </div>
+            ${ex.adaptNote ? `<p class="feel-note dim">${escapeHtml(ex.adaptNote)}</p>` : ""}
           </div>
         </div>
         ${foldHtml("Tips / skip", tipsBody, { className: "fold-ex" })}
@@ -828,6 +922,14 @@ function renderSessionCard(session) {
       const restSec = restDefaultForRole(ex.role);
       startRestTimer(restSec);
       toast("Set saved · rest on");
+    });
+  });
+  list.querySelectorAll("[data-feel]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = +btn.dataset.feelEx;
+      const feel = btn.dataset.feel;
+      if (!feel || Number.isNaN(i)) return;
+      rateExerciseFeel(session, i, feel);
     });
   });
   list.querySelectorAll("[data-step-w]").forEach((btn) => {
@@ -1839,7 +1941,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · equipment · programs · custom targets`;
+    verNote.textContent = `v${APP_VERSION} · feel adapt · equipment · programs`;
   }
 
   renderEquipmentSettings();

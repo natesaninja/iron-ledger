@@ -5,7 +5,7 @@
 
 const KEY = "strengthledger_v1";
 /** Schema version written on save */
-export const STORE_VERSION = 4;
+export const STORE_VERSION = 5;
 
 const EMPTY = () => ({
   settings: null,
@@ -31,6 +31,13 @@ const EMPTY = () => ({
   lastBackupAt: null,
   /** Days between backup reminders (default 7) */
   backupRemindDays: 7,
+  /**
+   * In-session feel adaptations: iso -> {
+   *   exercises: { exerciseId: { sets, lastFeel, plannedSetsBase } },
+   *   adaptLog: []
+   * }
+   */
+  sessionAdapt: {},
   version: STORE_VERSION,
   updatedAt: null,
 });
@@ -77,6 +84,12 @@ export function migrateState(raw) {
       if (data.settings.programWeekOffset == null) data.settings.programWeekOffset = 0;
     }
   }
+
+  // v4 → v5: in-session feel adapt map
+  if (ver < 5) {
+    if (!data.sessionAdapt || typeof data.sessionAdapt !== "object") data.sessionAdapt = {};
+  }
+  if (!data.sessionAdapt || typeof data.sessionAdapt !== "object") data.sessionAdapt = {};
 
   data.version = STORE_VERSION;
   return data;
