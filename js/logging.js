@@ -4,11 +4,39 @@
 import { EXERCISES, MUSCLES } from "./data.js";
 import { isExerciseAvailable } from "./equipment.js";
 
+/** Map training-max keys → main lift exercise ids (for TM estimates). */
+export const TM_LIFT_IDS = {
+  squat: ["bb_back_squat", "goblet_squat", "hack_squat", "leg_press"],
+  bench: ["bb_bench", "db_bench", "db_floor_press", "chest_press_machine"],
+  deadlift: ["conventional_dl", "rdl", "db_rdl"],
+  press: ["ohp", "db_shoulder_press", "machine_shoulder_press"],
+};
+
 const EX_MAP = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));
 const MUSCLE_MAP = Object.fromEntries(MUSCLES.map((m) => [m.id, m]));
 
 /** Short form cues (educational). */
 export const FORM_CUES = {
+  goblet_squat: ["Elbows inside knees", "Chest tall", "Full depth you own"],
+  db_rdl: ["Soft knees, hips back", "DBs skim thighs", "Feel hamstrings stretch"],
+  db_floor_press: ["Shoulders set on floor", "Pause at floor contact", "Press straight up"],
+  pushup: ["Body straight", "Chest near floor", "Don't shrug"],
+  band_chest_press: ["Band taut at start", "Press without shrugging", "Control the return"],
+  band_row: ["Tall torso", "Pull to ribs", "Squeeze shoulder blades"],
+  db_row: ["Hinge and brace", "Elbow to hip", "Don't twist open"],
+  band_pulldown: ["Chest up", "Pull elbows down", "Full stretch at top"],
+  band_face_pull: ["Pull to face", "External rotate at end", "Don't shrug"],
+  band_lateral: ["Soft elbows", "Lead with elbows", "Stop at shoulder height"],
+  db_fly: ["Soft elbows fixed", "Wide arc", "Squeeze chest"],
+  nordic_curl_ecc: ["Slow lower only", "Hips extended", "Hands ready to catch"],
+  glute_bridge: ["Ribs down", "Squeeze glutes at top", "Don't arch lumbar"],
+  db_hip_thrust: ["Chin tucked", "Drive through heels", "Full hip lock"],
+  db_calf_raise: ["Full stretch bottom", "Pause at top", "Don't bounce"],
+  bw_calf_raise: ["Full ROM", "Pause top", "Slow lower"],
+  band_pushdown: ["Elbows pinned", "Only forearms move", "Full lock soft"],
+  band_curl: ["Elbows still", "No swing", "Control lower"],
+  dead_bug: ["Low back pinned", "Opposite arm/leg", "Slow and quiet"],
+  good_morning_bw: ["Soft knees", "Hips back", "Neutral neck"],
   bb_back_squat: ["Brace, sit between the hips", "Knees track over toes", "Drive the floor away"],
   leg_press: ["Full foot contact", "Don't lock out harshly", "Control the return"],
   hack_squat: ["Back flat on pad", "Depth you can own", "Push through mid-foot"],
@@ -520,7 +548,174 @@ export function buildCoverInsights({
     }
   }
 
+  // Program adherence (when running a fixed template)
+  if (plan?.meta?.source === "program" && plan.meta.programId) {
+    const progItems = buildProgramAdherenceInsights(plan, completedSessions, t);
+    items.unshift(...progItems);
+  }
+
   return { items, deloadSuggested, deloadReason, stagnant, volumeRows };
+}
+
+/**
+ * Honest program Cover lines: days hit, slot mix, wave week, remaining slots.
+ */
+export function buildProgramAdherenceInsights(plan, completedSessions = {}, today = null) {
+  const t = today || new Date().toISOString().slice(0, 10);
+  const items = [];
+  const sessions = plan?.sessions || [];
+  if (!sessions.length) return items;
+
+  const programId = plan.meta?.programId || "program";
+  const past = sessions.filter((s) => s.day <= t);
+  const future = sessions.filter((s) => s.day > t);
+  const done = past.filter((s) => completedSessions?.[s.day]?.completed).length;
+  const missed = past.filter((s) => !completedSessions?.[s.day]?.completed && s.day < t).length;
+  const hitRate = past.length ? Math.round((done / past.length) * 100) : 0;
+
+  const slotCounts = {};
+  for (const s of sessions) {
+    const id = s.slotId || s.label || "session";
+    slotCounts[id] = (slotCounts[id] || 0) + 1;
+  }
+  const slotLine = Object.entries(slotCounts)
+    .map(([id, n]) => `${String(id).replace(/_/g, " ")}×${n}`)
+    .join(" · ");
+
+  let waveNote = "";
+  const withWave = sessions.find((s) => s.schemeNotes && /wave|5s|3s|5\/3\/1|deload/i.test(s.schemeNotes));
+  if (withWave?.schemeNotes) {
+    const m = withWave.schemeNotes.match(/Week wave:\s*([^·]+)/i) || withWave.schemeNotes.match(/(5s|3s|5\/3\/1|deload[^·]*)/i);
+    if (m) waveNote = m[1].trim();
+  }
+
+  let tone = "ok";
+  let title = `${programId.replace(/_/g, " ")} · ${done}/${past.length || 0} done`;
+  let body = `Planned this month: ${sessions.length} days (${slotLine || "slots"}).`;
+  if (waveNote) body += ` Wave cue: ${waveNote}.`;
+  if (future.length) body += ` ${future.length} train day(s) still ahead.`;
+  if (missed > 0) {
+    tone = "warn";
+    title = `${programId.replace(/_/g, " ")} · ${missed} missed`;
+    body += ` You skipped ${missed} planned day(s) so far — next open day continues the rotation (week restarts Mon).`;
+  } else if (past.length && hitRate >= 80) {
+    body += ` Adherence looks solid (${hitRate}% of days due).`;
+  } else if (!past.length) {
+    tone = "dim";
+    title = `${programId.replace(/_/g, " ")} · not started`;
+    body = `Template loaded · ${sessions.length} days on the calendar. Mark complete after you train.`;
+  }
+
+  items.push({ id: "program-adherence", tone, title, body });
+
+  // Under-hit primaries from planned program volume vs logged
+  const under = plan.meta?.underCoveredPrimaries || [];
+  if (under.length) {
+    items.push({
+      id: "program-under",
+      tone: "warn",
+      title: "Behind on planned primary volume",
+      body: `${under.join(", ")} — more train days or fewer skipped slots will catch up.`,
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Estimate training maxes (approx 1RM * 0.9) from best recent hard sets.
+ * @returns {{ squat?: number, bench?: number, deadlift?: number, press?: number, details: object }}
+ */
+export function suggestTrainingMaxes(logs, { lookbackDays = 90 } = {}) {
+  const cutoff = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - lookbackDays);
+    return d.toISOString().slice(0, 10);
+  })();
+  const bestE1 = {};
+  for (const [key, ids] of Object.entries(TM_LIFT_IDS)) {
+    bestE1[key] = { e1rm: 0, exerciseId: null, day: null };
+  }
+  for (const day of Object.keys(logs || {}).sort().reverse()) {
+    if (day < cutoff) continue;
+    for (const [eid, exLog] of Object.entries(logs[day]?.exercises || {})) {
+      const hard = (exLog.sets || []).filter(
+        (s) => s && s.hard !== false && +s.weight > 0 && +s.reps > 0
+      );
+      if (!hard.length) continue;
+      const e1 = bestSetE1rm(hard);
+      for (const [key, ids] of Object.entries(TM_LIFT_IDS)) {
+        if (!ids.includes(eid)) continue;
+        if (e1 > bestE1[key].e1rm) {
+          bestE1[key] = { e1rm: e1, exerciseId: eid, day };
+        }
+      }
+    }
+  }
+  const out = { details: bestE1 };
+  for (const key of Object.keys(TM_LIFT_IDS)) {
+    const e1 = bestE1[key].e1rm;
+    if (e1 >= 45) {
+      // Training max ≈ 90% of estimated 1RM (Wendler-style ballpark)
+      out[key] = Math.round((e1 * 0.9) / 5) * 5;
+    }
+  }
+  return out;
+}
+
+/**
+ * End-of-session coverage + adapt recap for the summary modal.
+ */
+export function buildSessionCoverageCheck(session, dayLog, adaptPack = null) {
+  const summary = buildSessionSummary(session, dayLog);
+  const plannedMuscles = {};
+  const loggedMuscles = summary.muscleHard || {};
+  for (const ex of session?.exercises || []) {
+    for (const m of ex.primary || []) {
+      plannedMuscles[m] = (plannedMuscles[m] || 0) + (+ex.sets || 0);
+    }
+  }
+  const short = [];
+  const ok = [];
+  for (const [mid, need] of Object.entries(plannedMuscles)) {
+    const got = loggedMuscles[mid] || 0;
+    const name = MUSCLE_MAP[mid]?.name || mid;
+    if (got + 0.5 < need * 0.7) short.push({ id: mid, name, got, need });
+    else ok.push({ id: mid, name, got, need });
+  }
+  short.sort((a, b) => a.got / a.need - b.got / b.need);
+
+  const adaptLog = adaptPack?.adaptLog || session?.adaptLog || [];
+  const adaptLines = adaptLog.map((a) => {
+    const sign = a.delta > 0 ? `+${a.delta}` : a.delta < 0 ? `${a.delta}` : "0";
+    let line = `${a.name}: ${a.feel} (${sign} set)`;
+    if (a.rebalanced?.length) {
+      line += ` → ${a.rebalanced.map((r) => `${r.name} ${r.delta > 0 ? "+" : ""}${r.delta}`).join(", ")}`;
+    }
+    return line;
+  });
+
+  let headline = "Session coverage looks solid";
+  let tone = "ok";
+  if (short.length >= 2) {
+    headline = "A few muscles finished light";
+    tone = "warn";
+  } else if (short.length === 1) {
+    headline = `${short[0].name} finished light`;
+    tone = "warn";
+  } else if (summary.pctOfPlan < 70) {
+    headline = "Below planned set count";
+    tone = "warn";
+  }
+
+  return {
+    headline,
+    tone,
+    short,
+    ok,
+    adaptLines,
+    summary,
+  };
 }
 
 export function formatLoad(w) {

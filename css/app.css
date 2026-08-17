@@ -1265,6 +1265,25 @@ main {
   background: color-mix(in srgb, var(--accent, #8fbc5a) 18%, transparent);
   color: var(--accent-text, inherit);
 }
+.feel-btn.is-suggest:not(.is-on) {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent, #8fbc5a) 55%, var(--border, #444));
+  opacity: 0.95;
+}
+.summary-coverage {
+  margin: 0.5rem 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.summary-coverage.tone-warn {
+  color: #c47a4a;
+}
+.summary-coverage.tone-ok {
+  color: var(--accent, #8fbc5a);
+}
+.summary-adapt {
+  margin: 0.5rem 0 0;
+}
 .feel-btn[data-feel="easy"].is-on {
   border-color: #5aab6e;
   background: color-mix(in srgb, #5aab6e 20%, transparent);

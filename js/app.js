@@ -70,6 +70,8 @@ import {
   buildSessionSummary,
   buildMacroHandoffParams,
   buildCoverInsights,
+  buildSessionCoverageCheck,
+  suggestTrainingMaxes,
 } from "./logging.js";
 import {
   EQUIPMENT_KEYS,
@@ -86,7 +88,7 @@ import {
   FEEL,
 } from "./adapt.js";
 
-const APP_VERSION = "21";
+const APP_VERSION = "22";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -818,15 +820,25 @@ function renderSessionCard(session) {
             <button type="button" class="ghost-btn tiny" data-rest="${restSec}" data-ex-rest="${i}">Rest ${restSec >= 60 ? restSec / 60 + "m" : restSec + "s"}</button>
             <button type="button" class="ghost-btn tiny" data-save-log="${i}">Save</button>
           </div>
+          ${(() => {
+            const rpeHint = feelFromRpe(avgHardRpe(sets));
+            const sugFeel = ex.lastFeel || rpeHint;
+            const rpeNote =
+              !ex.lastFeel && rpeHint
+                ? `<p class="feel-note dim">RPE suggests <strong>${escapeHtml(rpeHint)}</strong> — tap to apply</p>`
+                : "";
+            return `
           <div class="feel-row" data-feel-row="${i}">
             <span class="feel-label">How did it feel?</span>
             <div class="feel-btns">
-              <button type="button" class="feel-btn ${ex.lastFeel === "easy" ? "is-on" : ""}" data-feel="easy" data-feel-ex="${i}" title="Easier than expected — add a set if room">Easy</button>
-              <button type="button" class="feel-btn ${ex.lastFeel === "right" ? "is-on" : ""}" data-feel="right" data-feel-ex="${i}" title="On target — keep the plan">Right</button>
-              <button type="button" class="feel-btn ${ex.lastFeel === "hard" ? "is-on" : ""}" data-feel="hard" data-feel-ex="${i}" title="Heavy grind — drop a set, shift volume later">Hard</button>
+              <button type="button" class="feel-btn ${sugFeel === "easy" ? "is-on" : ""} ${!ex.lastFeel && rpeHint === "easy" ? "is-suggest" : ""}" data-feel="easy" data-feel-ex="${i}" title="Easier than expected — add a set if room">Easy</button>
+              <button type="button" class="feel-btn ${sugFeel === "right" ? "is-on" : ""} ${!ex.lastFeel && rpeHint === "right" ? "is-suggest" : ""}" data-feel="right" data-feel-ex="${i}" title="On target — keep the plan">Right</button>
+              <button type="button" class="feel-btn ${sugFeel === "hard" ? "is-on" : ""} ${!ex.lastFeel && rpeHint === "hard" ? "is-suggest" : ""}" data-feel="hard" data-feel-ex="${i}" title="Heavy grind — drop a set, shift volume later">Hard</button>
             </div>
+            ${rpeNote}
             ${ex.adaptNote ? `<p class="feel-note dim">${escapeHtml(ex.adaptNote)}</p>` : ""}
-          </div>
+          </div>`;
+          })()}
         </div>
         ${foldHtml("Tips / skip", tipsBody, { className: "fold-ex" })}
       </div>
@@ -930,6 +942,16 @@ function renderSessionCard(session) {
       const feel = btn.dataset.feel;
       if (!feel || Number.isNaN(i)) return;
       rateExerciseFeel(session, i, feel);
+    });
+  });
+  // After RPE edits, re-highlight suggested feel (debounced via change/blur)
+  list.querySelectorAll(".set-rpe").forEach((inp) => {
+    inp.addEventListener("change", () => {
+      const row = inp.closest(".ex-item");
+      const i = row ? +row.dataset.i : NaN;
+      if (Number.isNaN(i)) return;
+      saveExerciseLogFromDom(session, i, { silent: true });
+      renderSessionCard(session);
     });
   });
   list.querySelectorAll("[data-step-w]").forEach((btn) => {
@@ -1144,6 +1166,17 @@ function showSessionSummary(session) {
         : `<li><strong>${escapeHtml(l.name)}</strong> ${escapeHtml(l.top)} · ${l.sets} hard</li>`
     )
     .join("");
+  const check = buildSessionCoverageCheck(session, dayLog, state.sessionAdapt?.[session.day]);
+  const shortLine = check.short.length
+    ? `<p class="summary-coverage tone-${escapeHtml(check.tone)}"><strong>${escapeHtml(check.headline)}</strong> — light on ${check.short
+        .map((s) => escapeHtml(s.name))
+        .join(", ")}. Later sessions can catch up.</p>`
+    : `<p class="summary-coverage tone-ok"><strong>${escapeHtml(check.headline)}</strong></p>`;
+  const adaptBlock = check.adaptLines.length
+    ? `<div class="summary-adapt"><p class="hint">Feel adjustments</p><ul class="summary-lifts">${check.adaptLines
+        .map((l) => `<li>${escapeHtml(l)}</li>`)
+        .join("")}</ul></div>`
+    : "";
   body.innerHTML = `
     <p class="hint">${escapeHtml(summary.label)} · ${escapeHtml(session.day)}</p>
     <div class="summary-stats">
@@ -1152,7 +1185,9 @@ function showSessionSummary(session) {
       <div><strong>${summary.pctOfPlan}%</strong><span>of plan</span></div>
       <div><strong>~${summary.minutes || "—"}</strong><span>min</span></div>
     </div>
+    ${shortLine}
     <ul class="summary-lifts">${liftLines || "<li class='dim'>No sets logged</li>"}</ul>
+    ${adaptBlock}
     <p class="dim">Quiet close — export a backup from Settings when you can.</p>
   `;
   modal.hidden = false;
@@ -1450,9 +1485,26 @@ function renderCoverage() {
   }
   const under = plan.meta.underCoveredPrimaries || [];
   const modeLbl = trainingModeLabel(state.settings?.trainingMode || "med");
-  meta.textContent = under.length
-    ? `⚠ Under target (${modeLbl}) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
-    : `✓ Primaries on planned track · ${modeLbl} · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
+  if (plan.meta?.source === "program" && plan.meta.programId) {
+    const today = todayISO();
+    const sess = plan.sessions || [];
+    const past = sess.filter((s) => s.day <= today);
+    const done = past.filter((s) => state.completedSessions?.[s.day]?.completed).length;
+    const missed = past.filter((s) => s.day < today && !state.completedSessions?.[s.day]?.completed).length;
+    const pname = plan.meta.programName || plan.meta.programId;
+    const bits = [
+      `Program · ${pname}`,
+      `${done}/${past.length || 0} days done`,
+      missed ? `${missed} missed` : null,
+      `${plan.meta.trainingDays} on calendar`,
+      under.length ? `light plan volume: ${under.slice(0, 3).join(", ")}` : "planned primaries covered",
+    ].filter(Boolean);
+    meta.textContent = bits.join(" · ");
+  } else {
+    meta.textContent = under.length
+      ? `⚠ Under target (${modeLbl}) on: ${under.join(", ")} · ${plan.meta.trainingDays} train days`
+      : `✓ Primaries on planned track · ${modeLbl} · ${plan.meta.trainingDays} train days · ×${plan.meta.medMultiplier}`;
+  }
 
   const from = plan.meta?.start;
   const to = plan.meta?.end;
@@ -2461,6 +2513,30 @@ function initEvents() {
     applyAugustSeed(true);
   };
   document.getElementById("save-settings").onclick = saveSettingsFromForm;
+  document.getElementById("btn-suggest-tms")?.addEventListener("click", () => {
+    const sug = suggestTrainingMaxes(state.logs || {});
+    const keys = ["squat", "bench", "deadlift", "press"];
+    const filled = [];
+    const merged = { ...(state.settings.trainingMaxes || {}) };
+    for (const k of keys) {
+      if (sug[k] != null) {
+        merged[k] = sug[k];
+        filled.push(`${k} ${sug[k]}`);
+      }
+    }
+    fillTrainingMaxesForm(merged);
+    state.settings.trainingMaxes = merged;
+    const note = document.getElementById("tm-suggest-note");
+    if (!filled.length) {
+      if (note) note.textContent = "Not enough logged hard sets yet — train and log a few sessions first.";
+      toast("No TM estimates yet — log more sets");
+      return;
+    }
+    if (note) {
+      note.textContent = `Estimated ~90% of best recent 1RM: ${filled.join(" · ")}. Review, then Save & rebuild.`;
+    }
+    toast(`Suggested TMs: ${filled.join(", ")}`);
+  });
   document.getElementById("set-training-mode")?.addEventListener("change", (e) => {
     const mode = e.target.value;
     syncTrainingModePanels(mode);
