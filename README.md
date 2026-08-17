@@ -9,7 +9,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
 **Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
 
-## Features (v20)
+## Features (v21)
 
 - Invite-only unlock per device (optional)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
@@ -19,6 +19,8 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 - **Custom targets** — emphasize push/pull/legs/arms; planner rebuilds sessions around your map  
 - MED / OED / rough dose by feel  
 - **Set log** — weight × reps × RPE, +/− steppers, same-as-last, Done→rest, plate hint  
+- **Feel adapt** — Easy / Right / Hard mid-session: +/− sets on that lift, rebalance later work so muscle coverage still lands  
+
 - Rest timer with wake lock + stronger vibrate · skip reasons · time-box · 7-day deload  
 - **Session summary** on complete → MacroLedger handoff (sets, dose, muscles, msets, mode/program, bodyweight; iPhone open fallback)  
 - **Cover** — planned vs logged · insights (volume, stagnation, push/pull, deload suggest) · history · PR board  
