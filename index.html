@@ -214,13 +214,19 @@
       <section id="view-supps" class="view">
         <div class="card">
           <h2>Supplements</h2>
-          <p class="dim" style="margin:0 0 0.65rem">Not medical advice · food &amp; sleep first</p>
+          <p class="hint" style="margin:0 0 0.5rem">
+            MED-first library — what to take, what to skip, and why. <strong>Not medical advice.</strong> Food &amp; sleep first.
+          </p>
+          <p class="dim" style="margin:0 0 0.65rem">
+            <strong>Core</strong> = high ROI · <strong>Optional</strong> = polish · <strong>If needed</strong> = labs/diet gap ·
+            <strong>Skip</strong> = usually a waste for trained lifters
+          </p>
           <div class="field">
             <label for="supp-search">Search</label>
             <input
               type="search"
               id="supp-search"
-              placeholder="creatine, sleep, strength…"
+              placeholder="creatine, sleep, joints, zinc, pump…"
               autocomplete="off"
               enterkeyhint="search"
             />
@@ -231,13 +237,13 @@
             <button type="button" class="supp-filter-btn" data-filter="core">Core</button>
             <button type="button" class="supp-filter-btn" data-filter="optional">Optional</button>
             <button type="button" class="supp-filter-btn" data-filter="conditional">If needed</button>
-            <button type="button" class="supp-filter-btn" data-filter="skip">Skip</button>
+            <button type="button" class="supp-filter-btn" data-filter="skip">Usually skip</button>
           </div>
           <p class="dim" id="supp-count" style="margin:0.5rem 0 0"></p>
           <div id="supp-list"></div>
         </div>
         <details class="card fold fold-card">
-          <summary class="fold-sum fold-card-sum">Learn: grades &amp; what we skip</summary>
+          <summary class="fold-sum fold-card-sum">Learn: grades &amp; how to use this tab</summary>
           <div class="fold-body">
             <p class="hint">
               <strong>Strong / moderate</strong> = research mostly supports it for training.
@@ -245,8 +251,8 @@
               <strong>Weak</strong> = don’t build a stack on it.
             </p>
             <p class="hint">
-              We deprioritize fat burners, “test boosters,” and kitchen-sink pre-workouts.
-              Creatine + protein + sleep usually win.
+              Add items to <strong>My stack</strong>, then check them off on <strong>Today</strong> when you take them.
+              We still deprioritize fat burners, test boosters, and kitchen-sink pre-workouts.
             </p>
             <p class="hint">
               <strong>MacroLedger</strong> (diet sibling): log the burn after a session.

@@ -89,7 +89,7 @@ import {
 } from "./adapt.js";
 import { buildTrainingWeekStrip, buildProgressionSheet } from "./week.js";
 
-const APP_VERSION = "23";
+const APP_VERSION = "23.1";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -1787,6 +1787,8 @@ function renderClaimRow(c) {
     </li>`;
 }
 
+const SUPP_TIER_ORDER = { core: 0, optional: 1, conditional: 2, skip: 3 };
+
 function renderSupps() {
   const list = document.getElementById("supp-list");
   const countEl = document.getElementById("supp-count");
@@ -1800,7 +1802,14 @@ function renderSupps() {
   });
 
   const stack = myStackSet();
-  const items = filteredSupplements();
+  let items = filteredSupplements();
+  items = [...items].sort((a, b) => {
+    const ta = SUPP_TIER_ORDER[a.tier] ?? 9;
+    const tb = SUPP_TIER_ORDER[b.tier] ?? 9;
+    if (ta !== tb) return ta - tb;
+    return String(a.name).localeCompare(String(b.name));
+  });
+
   if (countEl) {
     const stackN = stack.size;
     countEl.textContent =
@@ -1810,10 +1819,15 @@ function renderSupps() {
   }
 
   if (!items.length) {
-    list.innerHTML = `<p class="hint" style="margin:0.75rem 0 0">No matches. Try another search or filter — library is training-focused, not every wellness claim.</p>`;
+    const emptyStack =
+      suppFilter === "stack"
+        ? `<p class="hint" style="margin:0.75rem 0 0">Stack is empty. Open <strong>Core</strong>, add creatine + protein, then check them off on Today.</p>`
+        : `<p class="hint" style="margin:0.75rem 0 0">No matches. Try “sleep”, “joints”, “zinc”, or clear filters — library is training-focused.</p>`;
+    list.innerHTML = emptyStack;
     return;
   }
 
+  let lastTier = null;
   list.innerHTML = items
     .map((s) => {
       const tid = s.tier || "optional";
@@ -1828,7 +1842,14 @@ function renderSupps() {
         </li>`
         )
         .join("");
+      const showHeading = suppFilter === "all" && !suppQuery && tid !== lastTier;
+      lastTier = tid;
+      const heading = showHeading
+        ? `<h3 class="supp-tier-head">${escapeHtml(TIER_LABEL[tid] || tid)}</h3>`
+        : "";
+      const shortWhy = String(s.why || "").split(/(?<=\.)\s+/)[0] || "";
       return `
+    ${heading}
     <article class="sup-card" data-supp-id="${escapeHtml(s.id)}">
       <div class="sup-card-head">
         <h3>${escapeHtml(s.name)}</h3>
@@ -1837,8 +1858,9 @@ function renderSupps() {
           ${onStack ? "On stack ✓" : "Add to stack"}
         </button>
       </div>
+      <p class="sup-blurb">${escapeHtml(shortWhy)}</p>
       ${foldHtml(
-        "Details",
+        "Dose, evidence &amp; cautions",
         `${claims ? `<ul class="claim-list">${claims}</ul>` : ""}
         <p class="sup-meta"><strong>Dose:</strong> ${escapeHtml(s.medDose)}</p>
         <p class="sup-meta"><strong>When:</strong> ${escapeHtml(s.when)} · ${escapeHtml(s.window)}</p>
