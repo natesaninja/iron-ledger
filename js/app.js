@@ -100,7 +100,7 @@ import {
   buildJournalInsights,
 } from "./journal.js";
 
-const APP_VERSION = "24";
+const APP_VERSION = "24.1";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -1034,7 +1034,7 @@ function renderSessionCard(session) {
             <div class="journal-chip-row" data-ej-field="jointOk" data-ej-ex="${i}">
               <span class="journal-chip-label">Joint</span>
               <button type="button" class="journal-chip ${ej.jointOk === true ? "is-on" : ""}" data-ej-val="true">Fine</button>
-              <button type="button" class="journal-chip ${ej.jointOk === false ? "is-on" : ""}" data-ej-val="false">Niggle</button>
+              <button type="button" class="journal-chip ${ej.jointOk === false ? "is-on" : ""}" data-ej-val="false">Tender</button>
             </div>
           </div>`;
           })()}
