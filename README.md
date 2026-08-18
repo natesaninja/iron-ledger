@@ -9,7 +9,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
 **Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
 
-## Features (v23)
+## Features (v24)
 
 - Invite-only unlock per device (optional)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
@@ -23,6 +23,8 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 - **Feel adapt** — Easy / Right / Hard (+ RPE suggestion highlight)  
 - **Next targets** — progression sheet from last hard sets (Today hero + per-lift)  
 - **Training week strip** — Mon–Sun train/done/missed/rough at a glance  
+- **Training journal** — per-lift pain/energy/joint; session energy/mood/sleep/fuel/stack; Cover pattern insights  
+
 
 - **Session coverage check** — end-of-session muscle light list + feel adjustment recap  
 - **TM from logs** — suggest 5/3/1 training maxes from recent hard sets  

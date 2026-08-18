@@ -221,7 +221,7 @@ describe("formatLoad", () => {
 
 describe("store migrate + backup reminder", () => {
   it("migrates to STORE_VERSION", () => {
-    assert.equal(STORE_VERSION, 5);
+    assert.equal(STORE_VERSION, 6);
     const m = migrateState({ version: 1, logs: [], trainingDays: ["2026-08-01"] });
     assert.equal(m.version, STORE_VERSION);
     assert.ok(m.logs && !Array.isArray(m.logs));

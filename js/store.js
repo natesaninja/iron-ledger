@@ -5,7 +5,7 @@
 
 const KEY = "strengthledger_v1";
 /** Schema version written on save */
-export const STORE_VERSION = 5;
+export const STORE_VERSION = 6;
 
 const EMPTY = () => ({
   settings: null,
@@ -38,6 +38,10 @@ const EMPTY = () => ({
    * }
    */
   sessionAdapt: {},
+  /** iso -> exerciseId -> { pain, energyHit, jointOk, note, at } */
+  exerciseJournal: {},
+  /** iso -> session how-you-felt + fuel/supp context */
+  sessionJournal: {},
   version: STORE_VERSION,
   updatedAt: null,
 });
@@ -90,6 +94,14 @@ export function migrateState(raw) {
     if (!data.sessionAdapt || typeof data.sessionAdapt !== "object") data.sessionAdapt = {};
   }
   if (!data.sessionAdapt || typeof data.sessionAdapt !== "object") data.sessionAdapt = {};
+
+  // v5 → v6: training journal
+  if (ver < 6) {
+    if (!data.exerciseJournal || typeof data.exerciseJournal !== "object") data.exerciseJournal = {};
+    if (!data.sessionJournal || typeof data.sessionJournal !== "object") data.sessionJournal = {};
+  }
+  if (!data.exerciseJournal || typeof data.exerciseJournal !== "object") data.exerciseJournal = {};
+  if (!data.sessionJournal || typeof data.sessionJournal !== "object") data.sessionJournal = {};
 
   data.version = STORE_VERSION;
   return data;
