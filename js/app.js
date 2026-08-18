@@ -87,8 +87,9 @@ import {
   avgHardRpe,
   FEEL,
 } from "./adapt.js";
+import { buildTrainingWeekStrip, buildProgressionSheet } from "./week.js";
 
-const APP_VERSION = "22";
+const APP_VERSION = "23";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -604,6 +605,79 @@ function wireDosePicker() {
   });
 }
 
+function renderWeekStrip() {
+  const el = document.getElementById("week-strip");
+  if (!el) return;
+  const strip = buildTrainingWeekStrip({
+    trainingDays: state.trainingDays,
+    completedSessions: state.completedSessions,
+    dayDose: state.dayDose,
+    deloadUntil: state.deloadUntil,
+    today: todayISO(),
+  });
+  el.innerHTML = `
+    <div class="week-strip-head">
+      <strong>${escapeHtml(strip.headline)}</strong>
+      <span class="dim">${escapeHtml(strip.subline)}</span>
+    </div>
+    <div class="week-strip-days" role="list">
+      ${strip.days
+        .map((d) => {
+          const cls = [
+            "week-day",
+            d.isTrain ? "is-train" : "",
+            d.done ? "is-done" : "",
+            d.missed ? "is-missed" : "",
+            d.isToday ? "is-today" : "",
+            d.rough ? "is-rough" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          let mark = "·";
+          if (d.done) mark = "✓";
+          else if (d.missed) mark = "!";
+          else if (d.isTrain) mark = "○";
+          if (d.rough && d.isTrain) mark = d.done ? "✓" : "R";
+          return `<div class="${cls}" role="listitem" title="${escapeHtml(d.iso)}">
+            <span class="wd-dow">${escapeHtml(d.dow.slice(0, 2))}</span>
+            <span class="wd-mark">${mark}</span>
+          </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
+function renderProgressionSheet(session) {
+  const card = document.getElementById("progression-card");
+  const list = document.getElementById("progression-list");
+  const hint = document.getElementById("progression-hint");
+  if (!card || !list) return;
+  if (!session?.exercises?.length) {
+    card.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  const sheet = buildProgressionSheet(session, state.logs);
+  const withHist = sheet.filter((r) => r.hasHistory);
+  card.hidden = false;
+  if (hint) {
+    hint.textContent = withHist.length
+      ? "From your last hard sets — aim here before you start."
+      : "First logs for these lifts — pick hard but clean weights; targets appear next time.";
+  }
+  list.innerHTML = sheet
+    .map(
+      (r) => `
+    <li>
+      <div class="prog-name">${escapeHtml(r.name)}
+        <span class="prog-line-sub">${escapeHtml(r.line)}</span>
+      </div>
+      <div class="prog-load">${escapeHtml(r.hasHistory ? r.loadLabel : "—")}</div>
+    </li>`
+    )
+    .join("");
+}
+
 function renderToday() {
   const today = todayISO();
   const trainToday = state.trainingDays.includes(today);
@@ -614,6 +688,8 @@ function renderToday() {
 
   const hero = document.getElementById("today-hero");
   const session = focusIso ? sessionByDay(focusIso) : null;
+  renderWeekStrip();
+  renderProgressionSheet(session);
   renderCoachPanel(session);
 
   if (restToday) {
@@ -809,6 +885,19 @@ function renderSessionCard(session) {
         <div class="ex-detail">${ex.sets} × ${escapeHtml(ex.reps)} · ${escapeHtml(ex.primary.map(muscleName).join(", "))}${
           ex.lastFeel ? ` · <span class="feel-chip feel-${escapeHtml(ex.lastFeel)}">${escapeHtml(ex.lastFeel)}</span>` : ""
         }</div>
+        ${
+          sug.lines?.[0]
+            ? `<div class="ex-next-target">${escapeHtml(
+                sug.sets?.[0]?.weight != null && sug.sets[0].weight !== ""
+                  ? `Next: ${formatLoad(sug.sets[0].weight)} × ${sug.sets[0].reps}`
+                  : sug.lines[0]
+              )}${
+                sug.sets?.[0]?.weight != null && sug.sets[0].weight !== "" && sug.lines[0]
+                  ? ` <span class="dim">· ${escapeHtml(sug.lines[0])}</span>`
+                  : ""
+              }</div>`
+            : ""
+        }
         ${schemeLine}
         <div class="set-log" data-ex-log="${i}">
           <div class="set-head"><span></span><span>Load</span><span></span><span>Reps</span><span>RPE</span><span></span></div>
@@ -1993,7 +2082,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · feel adapt · equipment · programs`;
+    verNote.textContent = `v${APP_VERSION} · week strip · next targets · feel adapt`;
   }
 
   renderEquipmentSettings();

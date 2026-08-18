@@ -81,6 +81,7 @@
           <span class="chip" id="mode-chip">MED</span>
           <span class="status-tag">TODAY</span>
         </div>
+        <div class="week-strip card" id="week-strip" aria-label="This training week"></div>
         <div class="hero" id="today-hero"></div>
         <div id="stack-checkin" hidden></div>
         <div class="card coach-card" id="coach-card">
@@ -100,9 +101,17 @@
             </div>
           </details>
         </div>
-        <div class="card session-card" id="today-session-card">
+        <div class="card progression-card" id="progression-card" hidden>
           <div class="panel-head">
             <span class="panel-code">02</span>
+            <h2>Next targets</h2>
+          </div>
+          <p class="hint" id="progression-hint">From your last hard sets — load these before you start.</p>
+          <ul class="progression-list" id="progression-list"></ul>
+        </div>
+        <div class="card session-card" id="today-session-card">
+          <div class="panel-head">
+            <span class="panel-code">03</span>
             <h2 id="today-session-title">Session</h2>
           </div>
           <div id="today-rationale" class="session-why-wrap" hidden></div>
@@ -111,7 +120,7 @@
         </div>
         <div class="card">
           <div class="panel-head">
-            <span class="panel-code">03</span>
+            <span class="panel-code">04</span>
             <h2>Upcoming</h2>
           </div>
           <div id="upcoming-list"></div>
