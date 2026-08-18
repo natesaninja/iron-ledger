@@ -88,8 +88,19 @@ import {
   FEEL,
 } from "./adapt.js";
 import { buildTrainingWeekStrip, buildProgressionSheet } from "./week.js";
+import {
+  PAIN_LEVELS,
+  ENERGY_HIT_LEVELS,
+  PAIN_AREAS,
+  FUEL_TAGS,
+  SCALE_1_5,
+  patchExerciseJournal,
+  patchSessionJournal,
+  emptySessionJournalEntry,
+  buildJournalInsights,
+} from "./journal.js";
 
-const APP_VERSION = "23.1";
+const APP_VERSION = "24";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -148,6 +159,8 @@ function ensureSeeded() {
   if (!state.logs || typeof state.logs !== "object" || Array.isArray(state.logs)) state.logs = {};
   if (!state.stackCheckins || typeof state.stackCheckins !== "object") state.stackCheckins = {};
   if (!state.sessionAdapt || typeof state.sessionAdapt !== "object") state.sessionAdapt = {};
+  if (!state.exerciseJournal || typeof state.exerciseJournal !== "object") state.exerciseJournal = {};
+  if (!state.sessionJournal || typeof state.sessionJournal !== "object") state.sessionJournal = {};
   if (state.deloadUntil === undefined) state.deloadUntil = null;
   if (state.onboardingComplete == null) state.onboardingComplete = false;
   if (state.lastBackupAt === undefined) state.lastBackupAt = null;
@@ -305,6 +318,38 @@ function saveSessionAdapt(session) {
     updatedAt: new Date().toISOString(),
   };
   persist();
+}
+
+function getExerciseJournalEntry(iso, exerciseId) {
+  return state.exerciseJournal?.[iso]?.[exerciseId] || null;
+}
+
+function saveExerciseJournalField(iso, exerciseId, patch) {
+  state.exerciseJournal = state.exerciseJournal || {};
+  if (!state.exerciseJournal[iso]) state.exerciseJournal[iso] = {};
+  const prev = state.exerciseJournal[iso][exerciseId];
+  state.exerciseJournal[iso][exerciseId] = patchExerciseJournal(prev, patch);
+  persist();
+}
+
+function getSessionJournalEntry(iso) {
+  return state.sessionJournal?.[iso] || null;
+}
+
+function saveSessionJournal(iso, patch) {
+  state.sessionJournal = state.sessionJournal || {};
+  const prev = state.sessionJournal[iso];
+  // Auto-fill stackTaken from today's check-in if not set
+  if (patch.stackTaken == null && state.myStack?.length) {
+    const check = state.stackCheckins?.[iso] || {};
+    const taken = state.myStack.every((id) => check[id]);
+    const any = state.myStack.some((id) => check[id]);
+    if (taken) patch = { ...patch, stackTaken: true };
+    else if (any) patch = { ...patch, stackTaken: false };
+  }
+  state.sessionJournal[iso] = patchSessionJournal(prev, patch);
+  persist();
+  return state.sessionJournal[iso];
 }
 
 /**
@@ -647,6 +692,47 @@ function renderWeekStrip() {
     </div>`;
 }
 
+function renderReadinessCard() {
+  const card = document.getElementById("readiness-card");
+  const body = document.getElementById("readiness-body");
+  if (!card || !body) return;
+  const today = todayISO();
+  const done = !!state.completedSessions?.[today]?.completed;
+  // Show on train days before session is marked complete
+  const trainToday = state.trainingDays.includes(today);
+  if (!trainToday || done) {
+    card.hidden = true;
+    body.innerHTML = "";
+    return;
+  }
+  const sj = getSessionJournalEntry(today) || {};
+  card.hidden = false;
+  const row = (field, label) => `
+    <div class="journal-chip-row" data-ready-field="${field}">
+      <span class="journal-chip-label">${label}</span>
+      ${SCALE_1_5.map(
+        (n) =>
+          `<button type="button" class="journal-chip ${sj[field] === n ? "is-on" : ""}" data-ready-val="${n}">${n}</button>`
+      ).join("")}
+    </div>`;
+  body.innerHTML = `
+    ${row("sleepQuality", "Sleep")}
+    ${row("soreness", "Soreness")}
+    ${row("energy", "Energy")}
+    <p class="dim" style="margin:0.35rem 0 0">1 = rough · 5 = great</p>`;
+  body.querySelectorAll("[data-ready-field]").forEach((rowEl) => {
+    rowEl.querySelectorAll(".journal-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const field = rowEl.dataset.readyField;
+        const val = +btn.dataset.readyVal;
+        saveSessionJournal(today, { [field]: val });
+        toast("Readiness saved");
+        renderReadinessCard();
+      });
+    });
+  });
+}
+
 function renderProgressionSheet(session) {
   const card = document.getElementById("progression-card");
   const list = document.getElementById("progression-list");
@@ -689,6 +775,7 @@ function renderToday() {
   const hero = document.getElementById("today-hero");
   const session = focusIso ? sessionByDay(focusIso) : null;
   renderWeekStrip();
+  renderReadinessCard();
   renderProgressionSheet(session);
   renderCoachPanel(session);
 
@@ -876,6 +963,7 @@ function renderSessionCard(session) {
       const schemeLine = (ex.schemeNotes || "").trim()
         ? `<div class="ex-scheme">${escapeHtml(ex.schemeNotes.trim())}</div>`
         : "";
+      const ej = getExerciseJournalEntry(session.day, ex.exerciseId) || {};
 
       return `
     <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""}" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
@@ -926,6 +1014,28 @@ function renderSessionCard(session) {
             </div>
             ${rpeNote}
             ${ex.adaptNote ? `<p class="feel-note dim">${escapeHtml(ex.adaptNote)}</p>` : ""}
+          </div>
+          <div class="lift-journal" data-lift-journal="${i}">
+            <span class="feel-label">Lift journal</span>
+            <div class="journal-chip-row" data-ej-field="pain" data-ej-ex="${i}">
+              <span class="journal-chip-label">Pain</span>
+              ${PAIN_LEVELS.map(
+                (p) =>
+                  `<button type="button" class="journal-chip ${ej.pain === p.id ? "is-on" : ""}" data-ej-val="${p.id}">${escapeHtml(p.label)}</button>`
+              ).join("")}
+            </div>
+            <div class="journal-chip-row" data-ej-field="energyHit" data-ej-ex="${i}">
+              <span class="journal-chip-label">Energy</span>
+              ${ENERGY_HIT_LEVELS.map(
+                (p) =>
+                  `<button type="button" class="journal-chip ${ej.energyHit === p.id ? "is-on" : ""}" data-ej-val="${p.id}">${escapeHtml(p.label)}</button>`
+              ).join("")}
+            </div>
+            <div class="journal-chip-row" data-ej-field="jointOk" data-ej-ex="${i}">
+              <span class="journal-chip-label">Joint</span>
+              <button type="button" class="journal-chip ${ej.jointOk === true ? "is-on" : ""}" data-ej-val="true">Fine</button>
+              <button type="button" class="journal-chip ${ej.jointOk === false ? "is-on" : ""}" data-ej-val="false">Niggle</button>
+            </div>
           </div>`;
           })()}
         </div>
@@ -1031,6 +1141,22 @@ function renderSessionCard(session) {
       const feel = btn.dataset.feel;
       if (!feel || Number.isNaN(i)) return;
       rateExerciseFeel(session, i, feel);
+    });
+  });
+  list.querySelectorAll(".journal-chip-row[data-ej-field]").forEach((row) => {
+    row.querySelectorAll(".journal-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const i = +row.dataset.ejEx;
+        const field = row.dataset.ejField;
+        const ex = session.exercises[i];
+        if (!ex || !field) return;
+        let val = btn.dataset.ejVal;
+        if (field === "pain" || field === "energyHit") val = +val;
+        else if (field === "jointOk") val = val === "true";
+        saveExerciseJournalField(session.day, ex.exerciseId, { [field]: val });
+        toast("Lift journal saved");
+        renderSessionCard(session);
+      });
     });
   });
   // After RPE edits, re-highlight suggested feel (debounced via change/blur)
@@ -1266,6 +1392,78 @@ function showSessionSummary(session) {
         .map((l) => `<li>${escapeHtml(l)}</li>`)
         .join("")}</ul></div>`
     : "";
+  const sj = { ...emptySessionJournalEntry(), ...(getSessionJournalEntry(session.day) || {}) };
+  // Default session RPE from logged set RPEs if unset
+  if (sj.sessionRpe == null) {
+    const rpes = [];
+    for (const ex of session.exercises || []) {
+      const sets = state.logs?.[session.day]?.exercises?.[ex.exerciseId]?.sets || [];
+      for (const s of sets) if (+s.rpe > 0) rpes.push(+s.rpe);
+    }
+    if (rpes.length) sj.sessionRpe = Math.round((rpes.reduce((a, b) => a + b, 0) / rpes.length) * 2) / 2;
+  }
+  const scaleRow = (field, label) => `
+    <div class="journal-chip-row" data-sj-field="${field}">
+      <span class="journal-chip-label">${label}</span>
+      ${SCALE_1_5.map(
+        (n) =>
+          `<button type="button" class="journal-chip ${sj[field] === n ? "is-on" : ""}" data-sj-val="${n}">${n}</button>`
+      ).join("")}
+    </div>`;
+  const journalBlock = `
+    <div class="session-journal" id="session-journal-form">
+      <p class="hint" style="margin:0.75rem 0 0.35rem"><strong>Session journal</strong> — tap what fits (saved with Done / Macro)</p>
+      ${scaleRow("energy", "Energy")}
+      ${scaleRow("mood", "Mood")}
+      ${scaleRow("motivation", "Drive")}
+      ${scaleRow("stress", "Stress")}
+      ${scaleRow("soreness", "Soreness")}
+      ${scaleRow("sleepQuality", "Sleep")}
+      <div class="journal-chip-row">
+        <span class="journal-chip-label">Sleep hrs</span>
+        <input type="number" id="sj-sleep-hours" class="journal-hours" min="0" max="16" step="0.5" placeholder="—" value="${
+          sj.sleepHours != null ? escapeHtml(String(sj.sleepHours)) : ""
+        }" />
+      </div>
+      <div class="journal-chip-row" data-sj-field="sessionRpe">
+        <span class="journal-chip-label">sRPE</span>
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+          .map(
+            (n) =>
+              `<button type="button" class="journal-chip tiny ${sj.sessionRpe === n ? "is-on" : ""}" data-sj-val="${n}">${n}</button>`
+          )
+          .join("")}
+      </div>
+      <div class="journal-chip-row" data-sj-multi="painAreas">
+        <span class="journal-chip-label">Pain</span>
+        ${PAIN_AREAS.map(
+          (a) =>
+            `<button type="button" class="journal-chip ${(sj.painAreas || []).includes(a.id) ? "is-on" : ""}" data-sj-area="${a.id}">${escapeHtml(a.label)}</button>`
+        ).join("")}
+      </div>
+      <div class="journal-chip-row" data-sj-field="fuel">
+        <span class="journal-chip-label">Fuel</span>
+        ${FUEL_TAGS.map(
+          (f) =>
+            `<button type="button" class="journal-chip ${sj.fuel === f.id ? "is-on" : ""}" data-sj-val="${f.id}">${escapeHtml(f.label)}</button>`
+        ).join("")}
+      </div>
+      <div class="journal-chip-row" data-sj-field="proteinHit">
+        <span class="journal-chip-label">Protein</span>
+        <button type="button" class="journal-chip ${sj.proteinHit === true ? "is-on" : ""}" data-sj-val="true">Hit goal</button>
+        <button type="button" class="journal-chip ${sj.proteinHit === false ? "is-on" : ""}" data-sj-val="false">Missed</button>
+      </div>
+      <div class="journal-toggles">
+        <label class="journal-tog"><input type="checkbox" id="sj-stack" ${sj.stackTaken === true ? "checked" : ""} /> Took stack</label>
+        <label class="journal-tog"><input type="checkbox" id="sj-caffeine" ${sj.caffeine === true ? "checked" : ""} /> Caffeine</label>
+        <label class="journal-tog"><input type="checkbox" id="sj-alcohol" ${sj.alcohol === true ? "checked" : ""} /> Alcohol last night</label>
+        <label class="journal-tog"><input type="checkbox" id="sj-illness" ${sj.illness === true ? "checked" : ""} /> Feeling sick</label>
+      </div>
+      <div class="field" style="margin-top:0.5rem">
+        <label for="sj-note">Note</label>
+        <input type="text" id="sj-note" maxlength="160" placeholder="Anything else…" value="${escapeHtml(sj.note || "")}" />
+      </div>
+    </div>`;
   body.innerHTML = `
     <p class="hint">${escapeHtml(summary.label)} · ${escapeHtml(session.day)}</p>
     <div class="summary-stats">
@@ -1277,17 +1475,80 @@ function showSessionSummary(session) {
     ${shortLine}
     <ul class="summary-lifts">${liftLines || "<li class='dim'>No sets logged</li>"}</ul>
     ${adaptBlock}
+    ${journalBlock}
     <p class="dim">Quiet close — export a backup from Settings when you can.</p>
   `;
   modal.hidden = false;
+
+  // Interactive journal chips (re-bind each open)
+  const form = document.getElementById("session-journal-form");
+  const draft = { ...sj };
+  form?.querySelectorAll("[data-sj-field]").forEach((row) => {
+    const field = row.dataset.sjField;
+    row.querySelectorAll(".journal-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        let val = btn.dataset.sjVal;
+        if (["energy", "mood", "motivation", "stress", "soreness", "sleepQuality", "sessionRpe"].includes(field)) {
+          val = +val;
+        } else if (field === "proteinHit") {
+          val = val === "true";
+        }
+        draft[field] = val;
+        row.querySelectorAll(".journal-chip").forEach((b) => b.classList.remove("is-on"));
+        btn.classList.add("is-on");
+      });
+    });
+  });
+  form?.querySelectorAll("[data-sj-multi]").forEach((row) => {
+    row.querySelectorAll(".journal-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.sjArea;
+        const set = new Set(draft.painAreas || []);
+        if (set.has(id)) set.delete(id);
+        else set.add(id);
+        draft.painAreas = [...set];
+        btn.classList.toggle("is-on");
+      });
+    });
+  });
+
+  const flushJournal = () => {
+    const hoursEl = document.getElementById("sj-sleep-hours");
+    const noteEl = document.getElementById("sj-note");
+    const hrs = hoursEl?.value === "" ? null : +hoursEl.value;
+    draft.sleepHours = hrs != null && Number.isFinite(hrs) ? hrs : null;
+    draft.note = noteEl?.value?.trim() || "";
+    draft.stackTaken = !!document.getElementById("sj-stack")?.checked;
+    draft.caffeine = !!document.getElementById("sj-caffeine")?.checked;
+    draft.alcohol = !!document.getElementById("sj-alcohol")?.checked;
+    draft.illness = !!document.getElementById("sj-illness")?.checked;
+    saveSessionJournal(session.day, draft);
+  };
+
   const close = () => {
     modal.hidden = true;
   };
-  document.getElementById("session-summary-close")?.addEventListener("click", close, { once: true });
-  document.getElementById("session-summary-done")?.addEventListener("click", close, { once: true });
+  document.getElementById("session-summary-close")?.addEventListener(
+    "click",
+    () => {
+      flushJournal();
+      close();
+    },
+    { once: true }
+  );
+  document.getElementById("session-summary-done")?.addEventListener(
+    "click",
+    () => {
+      flushJournal();
+      toast("Session journal saved");
+      close();
+    },
+    { once: true }
+  );
   document.getElementById("session-summary-macro")?.addEventListener(
     "click",
     () => {
+      flushJournal();
       close();
       openMacroLedgerHandoff(session, { auto: true, summary });
     },
@@ -1296,7 +1557,10 @@ function showSessionSummary(session) {
   modal.addEventListener(
     "click",
     (e) => {
-      if (e.target.id === "session-summary-modal") close();
+      if (e.target.id === "session-summary-modal") {
+        flushJournal();
+        close();
+      }
     },
     { once: true }
   );
@@ -1637,7 +1901,16 @@ function renderCoverInsights() {
     today: todayISO(),
     lookbackDays: 14,
   });
-  if (!insights.items.length) {
+  const journal = buildJournalInsights({
+    sessionJournal: state.sessionJournal,
+    exerciseJournal: state.exerciseJournal,
+    completedSessions: state.completedSessions,
+    dayDose: state.dayDose,
+    today: todayISO(),
+    lookbackDays: 21,
+  });
+  const items = [...(journal.items || []), ...(insights.items || [])];
+  if (!items.length) {
     el.hidden = true;
     el.innerHTML = "";
     return;
@@ -1648,7 +1921,7 @@ function renderCoverInsights() {
     <div class="card insights-card">
       <h2>Insights</h2>
       <ul class="insight-list">
-        ${insights.items
+        ${items
           .map(
             (it) => `
           <li class="insight-item tone-${escapeHtml(it.tone || "dim")}">
@@ -2104,7 +2377,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · week strip · next targets · feel adapt`;
+    verNote.textContent = `v${APP_VERSION} · training journal · week strip · feel adapt`;
   }
 
   renderEquipmentSettings();
