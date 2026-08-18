@@ -920,6 +920,115 @@ main {
   line-height: 1.35;
 }
 
+.ex-next-target {
+  margin: 0.25rem 0 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent, var(--ember));
+  line-height: 1.3;
+}
+.ex-next-target .dim {
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+/* Training week strip */
+.week-strip {
+  margin: 0.5rem 0 0.65rem;
+  padding: 0.65rem 0.75rem;
+}
+.week-strip-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.week-strip-head strong {
+  font-size: 0.92rem;
+}
+.week-strip-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+.week-day {
+  text-align: center;
+  padding: 0.35rem 0.15rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  background: color-mix(in srgb, var(--surface-2, #1a1a1a) 80%, transparent);
+}
+.week-day .wd-dow {
+  display: block;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+.week-day .wd-mark {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+.week-day.is-train {
+  border-color: color-mix(in srgb, var(--accent, #8fbc5a) 40%, var(--border, #333));
+}
+.week-day.is-done {
+  background: color-mix(in srgb, var(--accent, #8fbc5a) 22%, transparent);
+  border-color: var(--accent, #8fbc5a);
+}
+.week-day.is-missed {
+  background: color-mix(in srgb, #c47a4a 18%, transparent);
+  border-color: color-mix(in srgb, #c47a4a 50%, transparent);
+}
+.week-day.is-today {
+  box-shadow: 0 0 0 1px var(--steel-bright, #aaa);
+}
+.week-day.is-rough .wd-mark {
+  color: #c47a4a;
+}
+
+.progression-card {
+  margin-bottom: 0.65rem;
+}
+.progression-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.progression-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #333) 70%, transparent);
+  font-size: 0.88rem;
+}
+.progression-list li:last-child {
+  border-bottom: none;
+}
+.progression-list .prog-name {
+  font-weight: 600;
+  min-width: 0;
+}
+.progression-list .prog-load {
+  font-weight: 700;
+  color: var(--accent, var(--ember));
+  white-space: nowrap;
+}
+.progression-list .prog-line-sub {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-top: 0.15rem;
+}
+
 .warmup-line {
   margin-top: 0.3rem;
   font-size: 0.75rem;
