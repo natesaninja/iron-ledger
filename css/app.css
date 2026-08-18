@@ -2267,6 +2267,23 @@ button.tiny {
   color: var(--ok);
   border-color: var(--ok);
 }
+.supp-tier-head {
+  margin: 1rem 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--text-dim));
+}
+.supp-tier-head:first-child {
+  margin-top: 0.35rem;
+}
+.sup-blurb {
+  margin: 0.35rem 0 0.25rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: var(--text-muted, var(--text-dim));
+}
 .claim-list {
   list-style: none;
   margin: 0.45rem 0 0.55rem;
