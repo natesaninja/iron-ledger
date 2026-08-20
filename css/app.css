@@ -125,6 +125,14 @@
   --grid-line: rgba(58, 64, 48, 0.08);
 }
 
+[data-theme="light"] body {
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
+  background-blend-mode: normal, normal;
+}
+
 *,
 *::before,
 *::after {
@@ -152,12 +160,13 @@ body {
 
 body {
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
-  /* Controlled field grid — precise, not decorative glow */
   background-color: var(--bg);
   background-image:
+    url("../icons/field-grain.jpg"),
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-size: 180px 180px, 24px 24px, 24px 24px;
+  background-blend-mode: overlay, normal, normal;
   background-attachment: fixed;
 }
 
@@ -201,7 +210,11 @@ textarea {
   min-height: 100dvh;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 92%, transparent) 0%, var(--bg-elevated) 48%),
+    var(--bg-elevated);
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.45);
+  isolation: isolate;
 }
 
 main {
@@ -213,7 +226,7 @@ main {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, #fff 4%) 0%, var(--bg) 100%);
   border-bottom: 1px solid var(--border-strong);
   margin: 0;
   padding: 0;
@@ -233,19 +246,23 @@ main {
   height: 40px;
   display: grid;
   place-items: center;
-  background: var(--accent);
+  background: #0a0c09;
   color: var(--accent-fg);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
   border: 1px solid var(--border-strong);
   flex-shrink: 0;
   cursor: pointer;
   padding: 0;
+  overflow: hidden;
+}
+.cmd-mark img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.08) saturate(0.85);
 }
 button.cmd-mark:active {
-  background: var(--accent-hover);
+  filter: brightness(1.15);
 }
 
 .cmd-id {
@@ -259,13 +276,23 @@ button.cmd-mark:active {
 }
 
 .cmd-stripe {
-  height: 4px;
+  height: 3px;
   background: linear-gradient(
     90deg,
-    var(--accent) 0 33%,
-    var(--ember) 33% 66%,
-    var(--border-strong) 66% 100%
+    var(--accent) 0%,
+    var(--ember) 42%,
+    var(--accent) 78%,
+    var(--border-strong) 100%
   );
+  background-size: 220% 100%;
+  animation: stripe-drift 18s linear infinite;
+}
+@keyframes stripe-drift {
+  from { background-position: 0 0; }
+  to { background-position: 220% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmd-stripe { animation: none; }
 }
 
 .brand-row,
@@ -322,14 +349,23 @@ button.cmd-mark:active {
 
 /* —— Panels (cards restructured) —— */
 .card {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--ember), var(--ember)),
+    linear-gradient(var(--ember), var(--ember)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 100%, #fff 3%) 0%, var(--bg) 18px, var(--bg) 100%);
+  background-size: 10px 2px, 2px 10px, 10px 2px, 2px 10px, auto;
+  background-position: top 0 right 0, top 0 right 0, bottom 0 left 0, bottom 0 left 0, 0 0;
+  background-repeat: no-repeat;
   border: 1px solid var(--border-strong);
   border-radius: 0;
   box-shadow: none;
   padding: 0;
   margin-bottom: 0.65rem;
   position: relative;
-  border-left: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
 }
 
 /* Corner ticks — field map plate */
@@ -347,12 +383,14 @@ button.cmd-mark:active {
   left: -1px;
   border-top: 2px solid var(--ember);
   border-left: 2px solid var(--ember);
+  box-shadow: 8px 0 0 -6px var(--ember), 0 8px 0 -6px var(--ember);
 }
 .card::after {
   bottom: -1px;
   right: -1px;
   border-bottom: 2px solid var(--accent);
   border-right: 2px solid var(--accent);
+  box-shadow: -8px 0 0 -6px var(--accent), 0 -8px 0 -6px var(--accent);
 }
 
 .card > * {
@@ -460,7 +498,7 @@ button.cmd-mark:active {
 
 /* —— Buttons —— */
 .primary-btn {
-  background: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff 12%) 0%, var(--accent) 38%, color-mix(in srgb, var(--accent) 82%, #000 18%) 100%);
   color: var(--accent-fg);
   border-radius: 0;
   min-height: 44px;
@@ -470,12 +508,15 @@ button.cmd-mark:active {
   font-size: 0.88rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  border: 1px solid transparent;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, #000 50%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 }
 .primary-btn:hover {
-  background: var(--accent-hover);
+  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%);
+}
+.primary-btn:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 .primary-btn:disabled {
   opacity: 0.4;
@@ -609,7 +650,13 @@ button.cmd-mark:active {
 
 /* —— Hero = ops board —— */
 .hero {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(100deg, var(--bg) 0 58%, color-mix(in srgb, var(--bg) 82%, transparent) 72%, color-mix(in srgb, var(--bg) 45%, transparent) 100%),
+    url("../icons/logo-mark.png");
+  background-repeat: no-repeat;
+  background-position: 0 0, calc(100% + 18px) -8px;
+  background-size: auto, 118px;
   border: 1px solid var(--border-strong);
   border-radius: 0;
   padding: 0;
@@ -715,6 +762,10 @@ button.cmd-mark:active {
   padding: 0.7rem 0.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+  border-left: 2px solid transparent;
+}
+.ex-item:hover {
+  border-left-color: var(--ember);
 }
 .ex-item:nth-child(even) {
   background: var(--bg-inset);
@@ -1009,12 +1060,13 @@ button.cmd-mark:active {
 }
 .week-day {
   text-align: center;
-  padding: 0.35rem 0.15rem;
-  border-radius: 8px;
-  border: 1px solid transparent;
+  padding: 0.4rem 0.1rem 0.35rem;
+  border-radius: 0;
+  border: 1px solid var(--border);
   font-size: 0.68rem;
   line-height: 1.2;
-  background: color-mix(in srgb, var(--surface-2, #1a1a1a) 80%, transparent);
+  background: var(--bg-inset);
+  font-family: var(--font-display);
 }
 .week-day .wd-dow {
   display: block;
@@ -1030,18 +1082,27 @@ button.cmd-mark:active {
   margin-top: 0.15rem;
 }
 .week-day.is-train {
-  border-color: color-mix(in srgb, var(--accent, #8fbc5a) 40%, var(--border, #333));
+  border-color: var(--accent);
+  background: var(--train-dim);
 }
 .week-day.is-done {
-  background: color-mix(in srgb, var(--accent, #8fbc5a) 22%, transparent);
-  border-color: var(--accent, #8fbc5a);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.week-day.is-done .wd-dow,
+.week-day.is-done .wd-mark {
+  opacity: 1;
+  color: var(--accent-fg);
 }
 .week-day.is-missed {
-  background: color-mix(in srgb, #c47a4a 18%, transparent);
-  border-color: color-mix(in srgb, #c47a4a 50%, transparent);
+  background: var(--danger-dim);
+  border-color: var(--danger);
 }
 .week-day.is-today {
-  box-shadow: 0 0 0 1px var(--steel-bright, #aaa);
+  outline: 1px solid var(--ember);
+  outline-offset: -1px;
+  box-shadow: inset 0 0 0 1px var(--ember-dim);
 }
 .week-day.is-rough .wd-mark {
   color: #c47a4a;
@@ -1847,16 +1908,22 @@ button.tiny {
 }
 
 .cov-bar {
-  height: 6px;
-  background: var(--bg-inset);
-  border-radius: 2px;
+  height: 8px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 7px,
+      color-mix(in srgb, var(--border-strong) 55%, transparent) 7px 8px
+    ),
+    var(--bg-inset);
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
 }
 .cov-bar > i {
   display: block;
   height: 100%;
-  background: var(--train);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--train) 80%, #fff 20%), var(--train));
   border-radius: 0;
 }
 .cov-bar.logged > i {
@@ -2067,7 +2134,8 @@ body.has-install-banner {
   background: var(--bg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-top: 2px solid var(--border-strong);
+  border-top: 1px solid var(--ember);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
   padding: 0 0 calc(env(safe-area-inset-bottom, 0px));
   display: flex;
   justify-content: center;
@@ -2123,8 +2191,8 @@ body.has-install-banner {
 }
 .nav-btn.active {
   color: var(--steel-bright);
-  background: var(--bg-elevated);
-  box-shadow: none;
+  background: var(--bg-card);
+  box-shadow: inset 0 -2px 0 var(--ember);
 }
 .nav-btn.active::before {
   content: "";

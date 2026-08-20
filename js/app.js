@@ -114,7 +114,7 @@ import {
   buildJournalInsights,
 } from "./journal.js";
 
-const APP_VERSION = "24.3";
+const APP_VERSION = "24.4";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {

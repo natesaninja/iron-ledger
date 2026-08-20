@@ -1,5 +1,5 @@
 /* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
-const CACHE = "ironledger-v24.3";
+const CACHE = "ironledger-v24.4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -30,6 +30,7 @@ const ASSETS = [
   "./icons/icon-512-maskable.png",
   "./icons/logo-mark.png",
   "./icons/logo-full.jpg",
+  "./icons/field-grain.jpg",
 ];
 
 self.addEventListener("install", (event) => {
