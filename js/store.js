@@ -4,6 +4,8 @@
  */
 
 const KEY = "strengthledger_v1";
+/** Previous write — used to undo a bad save / botched import */
+export const SNAP_KEY = "strengthledger_v1_snap";
 /** Schema version written on save */
 export const STORE_VERSION = 6;
 
@@ -120,6 +122,34 @@ export function loadState() {
 export function saveState(state) {
   const payload = {
     ...state,
+    version: STORE_VERSION,
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    const cur = localStorage.getItem(KEY);
+    if (cur) localStorage.setItem(SNAP_KEY, cur);
+  } catch {
+    /* quota / private mode */
+  }
+  localStorage.setItem(KEY, JSON.stringify(payload));
+  return payload;
+}
+
+export function hasAutosave() {
+  try {
+    return !!localStorage.getItem(SNAP_KEY);
+  } catch {
+    return false;
+  }
+}
+
+/** Roll back to the last successful save (does not rotate the snapshot). */
+export function restoreAutosave() {
+  const raw = localStorage.getItem(SNAP_KEY);
+  if (!raw) throw new Error("No auto-save");
+  const migrated = migrateState(JSON.parse(raw));
+  const payload = {
+    ...migrated,
     version: STORE_VERSION,
     updatedAt: new Date().toISOString(),
   };

@@ -30,7 +30,10 @@ import {
   needsBackupReminder,
   markBackupDone,
   formatBackupAge,
+  hasAutosave,
+  restoreAutosave,
 } from "./store.js";
+import { gymCardHtml } from "./gym-card.js";
 import {
   countCompletedSessions,
   resolveCoachStage,
@@ -111,7 +114,7 @@ import {
   buildJournalInsights,
 } from "./journal.js";
 
-const APP_VERSION = "24.2";
+const APP_VERSION = "24.3";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -1393,9 +1396,11 @@ function renderSessionCard(session) {
     </div>
     ${proteinHint}
     <button type="button" class="primary-btn" id="mark-complete">${session.completed ? "Mark incomplete" : "Mark session complete"}</button>
+    <button type="button" class="ghost-btn" id="print-gym-card" title="Print a one-page sheet for the gym floor">Gym card</button>
     <button type="button" class="ghost-btn" id="log-macro" title="Open MacroLedger with this session prefilled">Log burn in MacroLedger</button>
     <button type="button" class="ghost-btn" id="skip-day">Remove this train day</button>
   `;
+  document.getElementById("print-gym-card")?.addEventListener("click", () => printGymCard(session));
   document.getElementById("rest-presets")?.querySelectorAll("[data-rest-preset]").forEach((btn) => {
     btn.addEventListener("click", () => startRestTimer(+btn.dataset.restPreset));
   });
@@ -2537,12 +2542,15 @@ function renderSettingsForm() {
   if (backupAge) {
     const age = formatBackupAge(state.lastBackupAt);
     const nag = needsBackupReminder(state);
-    backupAge.textContent = nag ? `${age} · export recommended` : age;
+    const snap = hasAutosave() ? " · auto-save ready" : "";
+    backupAge.textContent = nag ? `${age} · export recommended${snap}` : `${age}${snap}`;
     backupAge.classList.toggle("backup-warn", nag);
   }
+  const restoreBtn = document.getElementById("restore-autosave");
+  if (restoreBtn) restoreBtn.disabled = !hasAutosave();
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · field brief · home-screen app`;
+    verNote.textContent = `v${APP_VERSION} · gym card · auto-save · offline type`;
   }
 
   renderEquipmentSettings();
@@ -2832,15 +2840,30 @@ function resetOnboardDraft() {
   }
 }
 
+function setShellLocked(locked) {
+  document.body.classList.toggle("is-onboarding", locked);
+  const overlay = document.getElementById("onboard");
+  if (overlay) overlay.hidden = !locked;
+  document.querySelectorAll(".app, .bottom-nav").forEach((el) => {
+    if (locked) {
+      el.setAttribute("inert", "");
+      el.setAttribute("aria-hidden", "true");
+    } else {
+      el.removeAttribute("inert");
+      el.removeAttribute("aria-hidden");
+    }
+  });
+}
+
 function showOnboarding(force = false) {
   if (!force && state.onboardingComplete) {
-    document.getElementById("onboard").hidden = true;
+    setShellLocked(false);
     paintInstallBanner();
     return;
   }
   onboardStep = 0;
   resetOnboardDraft();
-  document.getElementById("onboard").hidden = false;
+  setShellLocked(true);
   renderOnboardStep();
   paintInstallBanner();
 }
@@ -3022,7 +3045,7 @@ function finishOnboarding(useSample) {
     persist();
     rebuild();
   }
-  document.getElementById("onboard").hidden = true;
+  setShellLocked(false);
   updateGreeting();
   renderSettingsForm();
   paintInstallBanner();
@@ -3150,8 +3173,27 @@ function initEvents() {
     );
   });
   document.getElementById("export-btn").onclick = () => exportBackupFile();
+  document.getElementById("copy-backup-btn")?.addEventListener("click", async () => {
+    const ok = await copyText(exportJson(state), "Backup copied");
+    if (ok) noteBackupSuccess("Backup copied");
+  });
   document.getElementById("share-backup-btn")?.addEventListener("click", () => shareBackup());
   document.getElementById("import-btn").onclick = () => document.getElementById("import-file").click();
+  document.getElementById("restore-autosave")?.addEventListener("click", () => {
+    if (!hasAutosave()) {
+      toast("No auto-save yet — save once first");
+      return;
+    }
+    if (!window.confirm("Restore the previous save? What you see now is replaced.")) return;
+    try {
+      state = restoreAutosave();
+      rebuild();
+      renderSettingsForm();
+      toast("Restored previous save");
+    } catch {
+      toast("Could not restore");
+    }
+  });
   document.getElementById("import-file").onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3255,6 +3297,36 @@ async function copyText(text, okMsg) {
     }
     return false;
   }
+}
+
+function exerciseName(id) {
+  return EXERCISES.find((e) => e.id === id)?.name || id;
+}
+
+function printGymCard(session) {
+  if (!session) {
+    toast("Mark a train day first");
+    return;
+  }
+  const root = document.getElementById("gym-print");
+  if (!root) {
+    toast("Print sheet missing");
+    return;
+  }
+  root.innerHTML = gymCardHtml(session, state.logs, {
+    nameOf: exerciseName,
+    weekdayShort,
+  });
+  root.hidden = false;
+  document.body.classList.add("is-printing");
+  const done = () => {
+    document.body.classList.remove("is-printing");
+    root.hidden = true;
+    window.removeEventListener("afterprint", done);
+  };
+  window.addEventListener("afterprint", done);
+  window.print();
+  setTimeout(done, 1500);
 }
 
 function backupBlob() {

@@ -13,7 +13,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
 Tap **IL** in the header (or Setup → Field brief) for an in-app overview of every tab.
 
-## Features (v24.2)
+## Features (v24.3)
 
 - Invite-only unlock per device (optional)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
@@ -37,6 +37,9 @@ Tap **IL** in the header (or Setup → Field brief) for an in-app overview of ev
 - **Cover** — planned vs logged · insights (volume, stagnation, push/pull, deload suggest) · history · PR board  
 - **Supps** — evidence browser + personal stack + daily check-in  
 - Onboarding: where you train → how you train → mark Plan days  
+- **Gym card** — print today’s session (load / reps / RPE blanks) if the phone stays in the locker  
+- Auto-save of the previous write + copy/export/share backup · weekly reminder  
+- Offline type (self-hosted fonts) · maskable home-screen icon · Sentry on the live build  
 - Offline · local-only · export / share backup · weekly backup reminder · versioned store  
 
 ## Local

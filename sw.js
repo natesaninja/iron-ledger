@@ -1,11 +1,15 @@
 /* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
-const CACHE = "ironledger-v24.2";
+const CACHE = "ironledger-v24.3";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./css/app.css",
+  "./fonts/barlow-condensed-600.woff2",
+  "./fonts/barlow-condensed-700.woff2",
+  "./fonts/ibm-plex-sans-400.woff2",
   "./js/app.js",
+  "./js/gym-card.js",
   "./js/data.js",
   "./js/planner.js",
   "./js/store.js",
@@ -23,6 +27,7 @@ const ASSETS = [
   "./icons/icon-180.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/icon-512-maskable.png",
   "./icons/logo-mark.png",
   "./icons/logo-full.jpg",
 ];

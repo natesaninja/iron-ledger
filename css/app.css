@@ -1,4 +1,33 @@
 /* Iron Ledger — tactical / field order aesthetic (olive · charcoal · tan) */
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/barlow-condensed-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/barlow-condensed-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-sans-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-sans-400.woff2") format("woff2");
+}
+
 :root,
 [data-theme="midnight"] {
   color-scheme: dark;
@@ -2356,11 +2385,19 @@ body.has-install-banner {
   font-size: 0.72rem;
 }
 
+body.is-onboarding .app,
+body.is-onboarding .bottom-nav,
+body.is-onboarding .install-banner,
+body.is-onboarding .rest-timer-bar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .onboard-overlay {
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(0, 0, 0, 0.82);
+  background: var(--bg);
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -2823,4 +2860,96 @@ body.has-install-banner {
 .dose-science {
   margin: 0.25rem 0 0;
   line-height: 1.4;
+}
+
+.gym-print[hidden] {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .app,
+  .bottom-nav,
+  .onboard-overlay,
+  .install-banner,
+  .modal-backdrop,
+  .rest-timer-bar,
+  .invite-gate {
+    display: none !important;
+  }
+  .gym-print {
+    display: block !important;
+    position: static;
+    color: #111;
+    background: #fff;
+  }
+  .gym-sheet header {
+    border-bottom: 2px solid #111;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.8rem;
+  }
+  .gym-kicker {
+    font-family: "Barlow Condensed", sans-serif;
+    letter-spacing: 0.2em;
+    font-size: 0.7rem;
+    margin: 0;
+  }
+  .gym-sheet h1 {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0.2rem 0;
+  }
+  .gym-meta {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+  .gym-lift {
+    break-inside: avoid;
+    margin: 0.7rem 0 1rem;
+  }
+  .gym-lift h2 {
+    font-size: 1rem;
+    margin: 0;
+  }
+  .gym-lift p {
+    margin: 0.15rem 0 0.35rem;
+    font-size: 0.8rem;
+  }
+  .gym-lift table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .gym-lift th,
+  .gym-lift td {
+    border: 1px solid #333;
+    padding: 0.28rem 0.4rem;
+    height: 1.35rem;
+  }
+  .gym-lift th:first-child,
+  .gym-lift td:first-child {
+    width: 2rem;
+    text-align: center;
+  }
+}
+
+@media screen {
+  body.is-printing .app,
+  body.is-printing .bottom-nav {
+    display: none;
+  }
+  body.is-printing .gym-print {
+    display: block !important;
+    padding: 1rem;
+    color: var(--text);
+  }
 }

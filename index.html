@@ -37,10 +37,25 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="preload" href="fonts/barlow-condensed-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="css/app.css" />
+  <script>
+    window.SENTRY_RELEASE = { id: "iron-ledger@24.3" };
+    window.sentryOnLoad = function () {
+      Sentry.init({
+        tracesSampleRate: location.hostname === "localhost" || location.hostname === "127.0.0.1" ? 1.0 : 0.15,
+        environment: /github\.io$/.test(location.hostname) ? "production" : "local",
+        sendDefaultPii: false,
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: 0,
+      });
+      if (new URLSearchParams(location.search).get("sentry_test") === "1") {
+        Sentry.captureException(new Error("Iron Ledger Sentry wiring test"));
+      }
+    };
+  </script>
+  <script src="https://js.sentry-cdn.com/91cfaca5096c93a04e2105210a591428.min.js" crossorigin="anonymous" data-lazy="no"></script>
   <title>Iron Ledger</title>
 </head>
 <body>
@@ -92,7 +107,7 @@
           <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
         </div>
         <div class="cmd-meta">
-          <span class="app-version" id="app-version">v20</span>
+          <span class="app-version" id="app-version">v24.3</span>
           <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">◐</button>
         </div>
       </div>
@@ -522,14 +537,17 @@
           <h2>Data</h2>
           <p class="hint" id="backup-age">Never backed up</p>
           <p class="hint">
-            Data stays on this device. Export or share a backup before phone swaps, OS updates, or travel.
+            Data stays on this device. Every save keeps one previous copy for undo.
+            Export or share a backup before phone swaps, OS updates, or travel.
             Import on the new device from Settings.
           </p>
           <div class="btn-row">
             <button type="button" class="primary-btn" id="save-settings">Save & rebuild</button>
             <button type="button" class="ghost-btn" id="export-btn">Export backup</button>
+            <button type="button" class="ghost-btn" id="copy-backup-btn">Copy backup</button>
             <button type="button" class="ghost-btn" id="share-backup-btn">Share backup…</button>
             <button type="button" class="ghost-btn" id="import-btn">Import backup</button>
+            <button type="button" class="ghost-btn" id="restore-autosave">Undo last save</button>
             <input type="file" id="import-file" accept="application/json,.json" hidden />
           </div>
           <div class="btn-row" style="margin-top:0.5rem">
@@ -566,6 +584,8 @@
     <button type="button" class="icon-btn" id="install-dismiss" aria-label="Dismiss install hint">×</button>
     <button type="button" class="primary-btn" id="install-action">Got it</button>
   </div>
+
+  <div id="gym-print" class="gym-print" hidden></div>
 
   <nav class="bottom-nav" aria-label="Main">
     <div class="bottom-nav-inner">
