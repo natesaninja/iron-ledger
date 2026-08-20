@@ -3,14 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0c0e0b" />
+  <meta name="theme-color" content="#0c0e0b" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#d8d4c4" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c0e0b" id="theme-color-meta" />
+  <meta name="color-scheme" content="dark light" />
   <meta name="description" content="Iron Ledger — minimum effective dose strength training planner for commercial gyms" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Iron Ledger" />
+  <meta name="format-detection" content="telephone=no" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" type="image/png" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" sizes="192x192" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="splash/iphone-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <script>
+    (function () {
+      try {
+        var standalone =
+          (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+          window.navigator.standalone === true;
+        if (standalone) document.documentElement.classList.add("is-standalone");
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
@@ -60,7 +86,7 @@
   <div class="app">
     <header class="topbar">
       <div class="cmd-bar">
-        <div class="cmd-mark" aria-hidden="true">IL</div>
+        <button type="button" class="cmd-mark" id="brief-open" title="Field brief — what’s in this app" aria-label="Open field brief, what’s in Iron Ledger">IL</button>
         <div class="cmd-id">
           <div class="brand-name">Iron Ledger</div>
           <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
@@ -273,6 +299,13 @@
       <!-- SETTINGS -->
       <section id="view-settings" class="view">
         <div class="card">
+          <h2>Field brief</h2>
+          <p class="hint">What’s in this app — modes, Today, Cover, supps, install. Same list as tapping <strong>IL</strong> in the header.</p>
+          <div class="btn-row">
+            <button type="button" class="primary-btn" id="btn-open-brief">Open overview</button>
+          </div>
+        </div>
+        <div class="card">
           <h2>Appearance</h2>
           <div class="field">
             <label for="set-theme">Theme</label>
@@ -456,14 +489,18 @@
         </div>
         <div class="card">
           <h2>Install &amp; updates</h2>
-          <p class="hint">
-            Same model as MacroLedger: when you’re online the app updates itself.
+          <p class="hint" id="install-setup-hint">
+            iPhone: Safari → Share → <strong>Add to Home Screen</strong>.
+            Android: Chrome menu → <strong>Install app</strong>.
+            When you’re online the app updates itself.
             <strong>Never delete the Home Screen icon</strong> to “update” — on iPhone that can wipe local data.
           </p>
           <div class="btn-row">
-            <button type="button" class="primary-btn" id="btn-check-update">Refresh app</button>
+            <button type="button" class="primary-btn" id="btn-add-home">Add to Home Screen</button>
+            <button type="button" class="ghost-btn" id="btn-check-update">Refresh app</button>
           </div>
-          <p class="dim" id="live-url-label" style="margin-top:0.65rem"></p>
+          <p class="dim" id="install-setup-status" style="margin-top:0.55rem"></p>
+          <p class="dim" id="live-url-label" style="margin-top:0.35rem"></p>
         </div>
         <div class="card">
           <h2>Share (one tap)</h2>
@@ -520,6 +557,16 @@
     </div>
   </div>
 
+  <div class="install-banner" id="install-banner" hidden>
+    <img class="install-mark" src="icons/logo-mark.png" width="40" height="40" alt="" />
+    <div class="install-copy">
+      <strong id="install-title">Add to Home Screen</strong>
+      <p id="install-body">Safari → Share → Add to Home Screen. Then open from the icon.</p>
+    </div>
+    <button type="button" class="icon-btn" id="install-dismiss" aria-label="Dismiss install hint">×</button>
+    <button type="button" class="primary-btn" id="install-action">Got it</button>
+  </div>
+
   <nav class="bottom-nav" aria-label="Main">
     <div class="bottom-nav-inner">
       <button type="button" class="nav-btn active" data-view="today"><span class="nav-idx">01</span><span class="nav-label">Today</span></button>
@@ -538,6 +585,20 @@
       </div>
       <div id="swap-options"></div>
       <button type="button" class="ghost-btn full" id="swap-exclude" style="margin-top:0.5rem">Never show this exercise</button>
+    </div>
+  </div>
+
+  <div class="brief-overlay" id="brief-overlay" hidden>
+    <div class="brief-sheet" role="dialog" aria-modal="true" aria-labelledby="brief-title">
+      <div class="brief-head">
+        <div>
+          <div class="onboard-kicker">Field brief</div>
+          <h2 id="brief-title">What’s in Iron Ledger</h2>
+        </div>
+        <button type="button" class="icon-btn" id="brief-close" aria-label="Close overview">×</button>
+      </div>
+      <p class="hint" style="margin:0 0 0.75rem">Tap IL anytime. Jump opens that tab. Data stays on this phone.</p>
+      <div id="brief-list"></div>
     </div>
   </div>
 

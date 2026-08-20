@@ -3,13 +3,17 @@
 **Live:** https://natesaninja.github.io/iron-ledger/  
 Open freely (invite gate is off). Repo can stay private so source isn’t public.
 
-iPhone: Safari → URL → Share → **Add to Home Screen**.
+**Install (no store):** this is a home-screen app.
+
+- **iPhone:** Safari (not Chrome) → Share → **Add to Home Screen**. Launch from the icon.
+- **Android:** Chrome → menu → **Install app** / Add to Home Screen.
+- Updates apply automatically when online. Never delete the Home Screen icon to “update.”
 
 To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
-**Updates** apply automatically when online. Never delete the Home Screen icon to “update.”
+Tap **IL** in the header (or Setup → Field brief) for an in-app overview of every tab.
 
-## Features (v24)
+## Features (v24.2)
 
 - Invite-only unlock per device (optional)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  

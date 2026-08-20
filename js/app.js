@@ -89,6 +89,17 @@ import {
 } from "./adapt.js";
 import { buildTrainingWeekStrip, buildProgressionSheet } from "./week.js";
 import {
+  isStandaloneDisplay,
+  detectInstallPlatform,
+  shouldShowInstallCoach,
+  installCoachCopy,
+  readInstallDismissed,
+  writeInstallDismissed,
+  parseAppView,
+  envFromWindow,
+} from "./install.js";
+import { BRIEF_SECTIONS, briefJumpView } from "./brief.js";
+import {
   PAIN_LEVELS,
   ENERGY_HIT_LEVELS,
   PAIN_AREAS,
@@ -100,7 +111,7 @@ import {
   buildJournalInsights,
 } from "./journal.js";
 
-const APP_VERSION = "24.1";
+const APP_VERSION = "24.2";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -458,8 +469,9 @@ function applyTheme(pref) {
   document.documentElement.setAttribute("data-theme", mode);
   localStorage.setItem("sl_theme_pref", pref);
   localStorage.setItem("sl_theme", mode); // resolved, for older reads
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", mode === "midnight" ? "#0c0e0b" : "#d8d4c4");
+  const color = mode === "midnight" ? "#0c0e0b" : "#d8d4c4";
+  const meta = document.getElementById("theme-color-meta") || document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", color);
   const btn = document.getElementById("theme-toggle");
   if (btn) {
     const isDark = mode === "midnight";
@@ -495,17 +507,170 @@ function initTheme() {
 }
 
 // ---------- nav ----------
+function showView(view) {
+  if (!view) return;
+  document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
+  if (view === "plan") renderCalendar();
+  if (view === "coverage") renderCoverage();
+  if (view === "supps") renderSupps();
+  if (view === "settings") renderSettingsForm();
+}
+
 function initNav() {
   document.querySelectorAll(".nav-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const view = btn.dataset.view;
-      document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
-      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
-      if (view === "plan") renderCalendar();
-      if (view === "coverage") renderCoverage();
-      if (view === "supps") renderSupps();
-      if (view === "settings") renderSettingsForm();
-    });
+    btn.addEventListener("click", () => showView(btn.dataset.view));
+  });
+}
+
+function closeBrief() {
+  const el = document.getElementById("brief-overlay");
+  if (el) el.hidden = true;
+}
+
+function openBrief() {
+  const list = document.getElementById("brief-list");
+  const overlay = document.getElementById("brief-overlay");
+  if (!list || !overlay) return;
+  const viewLabel = { today: "Today", plan: "Plan", coverage: "Cover", supps: "Supps", settings: "Setup" };
+  list.innerHTML = BRIEF_SECTIONS.map((s) => {
+    const jump = briefJumpView(s.id);
+    const tab = viewLabel[jump] || "tab";
+    return `<article class="brief-item" data-brief="${escapeHtml(s.id)}">
+      <div class="brief-item-head">
+        <span class="panel-code">${escapeHtml(s.code)}</span>
+        <h3>${escapeHtml(s.title)}</h3>
+      </div>
+      <p>${escapeHtml(s.body)}</p>
+      ${jump ? `<button type="button" class="ghost-btn" data-brief-jump="${escapeHtml(jump)}">Open ${escapeHtml(tab)}</button>` : ""}
+    </article>`;
+  }).join("");
+  overlay.hidden = false;
+  document.getElementById("brief-close")?.focus();
+}
+
+function initBrief() {
+  document.getElementById("brief-open")?.addEventListener("click", openBrief);
+  document.getElementById("btn-open-brief")?.addEventListener("click", openBrief);
+  document.getElementById("brief-close")?.addEventListener("click", closeBrief);
+  document.getElementById("brief-overlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "brief-overlay") closeBrief();
+  });
+  document.getElementById("brief-list")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-brief-jump]");
+    if (!btn) return;
+    const view = btn.getAttribute("data-brief-jump");
+    closeBrief();
+    showView(view);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const overlay = document.getElementById("brief-overlay");
+    if (overlay && !overlay.hidden) closeBrief();
+  });
+}
+
+// ---------- home-screen install (no store) ----------
+let deferredInstallEvent = null;
+
+function hideInstallBanner() {
+  const banner = document.getElementById("install-banner");
+  if (banner) banner.hidden = true;
+  document.body.classList.remove("has-install-banner");
+}
+
+function paintInstallBanner() {
+  const banner = document.getElementById("install-banner");
+  if (!banner) return;
+  const onboard = document.getElementById("onboard");
+  const onboardOpen = !!(onboard && !onboard.hidden);
+  const platform = detectInstallPlatform();
+  const standalone = isStandaloneDisplay(envFromWindow(window));
+  const dismissed = readInstallDismissed(localStorage);
+  const show = !onboardOpen && shouldShowInstallCoach({ standalone, dismissed, platform });
+  const copy = installCoachCopy(platform);
+  const title = document.getElementById("install-title");
+  const body = document.getElementById("install-body");
+  const action = document.getElementById("install-action");
+  if (title) title.textContent = copy.title;
+  if (body) body.textContent = copy.body;
+  if (action) action.textContent = copy.actionLabel;
+  banner.hidden = !show;
+  document.body.classList.toggle("has-install-banner", show);
+  if (standalone) document.documentElement.classList.add("is-standalone");
+  const setupStatus = document.getElementById("install-setup-status");
+  const setupBtn = document.getElementById("btn-add-home");
+  if (standalone) {
+    if (setupStatus) setupStatus.textContent = "Installed on this device — open from the home-screen icon.";
+    if (setupBtn) setupBtn.hidden = true;
+  } else if (platform === "ios") {
+    if (setupStatus) setupStatus.textContent = "iPhone: must use Safari (not Chrome) for Add to Home Screen.";
+  } else if (platform === "android") {
+    if (setupStatus) setupStatus.textContent = deferredInstallEvent
+      ? "Tap Install, or Chrome menu → Install app."
+      : "Chrome menu → Install app. A prompt appears after a visit or two.";
+  } else if (setupStatus) {
+    setupStatus.textContent = "On a phone: Safari (iOS) or Chrome (Android) → add / install to Home Screen.";
+  }
+}
+
+async function runInstallAction() {
+  const platform = detectInstallPlatform();
+  if (platform === "android" && deferredInstallEvent) {
+    const ev = deferredInstallEvent;
+    deferredInstallEvent = null;
+    ev.prompt();
+    try {
+      const choice = await ev.userChoice;
+      if (choice?.outcome === "accepted") {
+        writeInstallDismissed(localStorage);
+        hideInstallBanner();
+        document.documentElement.classList.add("is-standalone");
+        toast("Installed");
+        paintInstallBanner();
+        return;
+      }
+    } catch {
+      /* user dismissed native sheet */
+    }
+    paintInstallBanner();
+    return;
+  }
+  if (platform === "android") {
+    toast("Chrome menu → Install app");
+    return;
+  }
+  if (platform === "ios") {
+    writeInstallDismissed(localStorage);
+    hideInstallBanner();
+    toast("Safari → Share → Add to Home Screen");
+    return;
+  }
+  toast("Open on a phone to install");
+}
+
+function initInstallCoach() {
+  paintInstallBanner();
+  document.getElementById("install-action")?.addEventListener("click", () => runInstallAction());
+  document.getElementById("install-dismiss")?.addEventListener("click", () => {
+    writeInstallDismissed(localStorage);
+    hideInstallBanner();
+  });
+  document.getElementById("btn-add-home")?.addEventListener("click", () => {
+    if (detectInstallPlatform() === "ios") showView("settings");
+    runInstallAction();
+  });
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallEvent = e;
+    paintInstallBanner();
+  });
+  window.addEventListener("appinstalled", () => {
+    writeInstallDismissed(localStorage);
+    hideInstallBanner();
+    document.documentElement.classList.add("is-standalone");
+    toast("Iron Ledger is on your home screen");
+    paintInstallBanner();
   });
 }
 
@@ -2377,7 +2542,7 @@ function renderSettingsForm() {
   }
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · training journal · week strip · feel adapt`;
+    verNote.textContent = `v${APP_VERSION} · field brief · home-screen app`;
   }
 
   renderEquipmentSettings();
@@ -2670,12 +2835,14 @@ function resetOnboardDraft() {
 function showOnboarding(force = false) {
   if (!force && state.onboardingComplete) {
     document.getElementById("onboard").hidden = true;
+    paintInstallBanner();
     return;
   }
   onboardStep = 0;
   resetOnboardDraft();
   document.getElementById("onboard").hidden = false;
   renderOnboardStep();
+  paintInstallBanner();
 }
 
 function renderOnboardStep() {
@@ -2858,6 +3025,7 @@ function finishOnboarding(useSample) {
   document.getElementById("onboard").hidden = true;
   updateGreeting();
   renderSettingsForm();
+  paintInstallBanner();
   if (!useSample) {
     document.querySelector('.nav-btn[data-view="plan"]')?.click();
     toast("Tap days you can train");
@@ -3346,6 +3514,8 @@ function startAppShell() {
 async function boot() {
   initTheme();
   initNav();
+  initBrief();
+  initInstallCoach();
   initEvents();
   initSuppsUi();
   wireInviteGate();
@@ -3382,6 +3552,8 @@ async function boot() {
 
   hideInviteGate();
   startAppShell();
+  const fromShortcut = parseAppView(location.search);
+  if (fromShortcut && fromShortcut !== "today") showView(fromShortcut);
   await registerServiceWorker();
   console.info(`${APP_NAME} v${APP_VERSION}`);
 }
