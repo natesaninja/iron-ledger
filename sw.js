@@ -1,12 +1,13 @@
 /* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
-const CACHE = "ironledger-v24.4";
+const CACHE = "ironledger-v24.5";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./css/app.css",
-  "./fonts/barlow-condensed-600.woff2",
-  "./fonts/barlow-condensed-700.woff2",
+  "./fonts/stardos-stencil-400.woff2",
+  "./fonts/stardos-stencil-700.woff2",
+  "./fonts/permanent-marker-400.woff2",
   "./fonts/ibm-plex-sans-400.woff2",
   "./js/app.js",
   "./js/gym-card.js",
