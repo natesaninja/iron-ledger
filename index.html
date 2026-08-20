@@ -34,10 +34,7 @@
           (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
           window.navigator.standalone === true;
         if (standalone) document.documentElement.classList.add("is-standalone");
-        if (
-          sessionStorage.getItem("il_hud_booted") === "1" ||
-          (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-        ) {
+        if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
           document.documentElement.classList.add("hud-skip-boot");
         }
       } catch (e) {}
@@ -48,7 +45,7 @@
   <link rel="preload" href="fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="css/app.css" />
   <script>
-    window.SENTRY_RELEASE = { id: "iron-ledger@24.6" };
+    window.SENTRY_RELEASE = { id: "iron-ledger@24.7" };
     window.sentryOnLoad = function () {
       Sentry.init({
         tracesSampleRate: location.hostname === "localhost" || location.hostname === "127.0.0.1" ? 1.0 : 0.15,
@@ -123,7 +120,7 @@
           <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
         </div>
         <div class="cmd-meta">
-          <span class="app-version" id="app-version">v24.6</span>
+          <span class="app-version" id="app-version">v24.7</span>
           <button type="button" class="icon-btn" id="hud-audio-toggle" title="Mute field drone" aria-label="Mute field drone" aria-pressed="true">◈</button>
           <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">◐</button>
         </div>

@@ -4,7 +4,6 @@
  */
 
 export const AUDIO_KEY = "il_hud_audio";
-const BOOT_KEY = "il_hud_booted";
 
 export function prefersReducedMotion() {
   try {
@@ -145,17 +144,10 @@ export function runHudBoot() {
     el.hidden = true;
     return Promise.resolve();
   }
-  try {
-    if (sessionStorage.getItem(BOOT_KEY) === "1") {
-      el.hidden = true;
-      return Promise.resolve();
-    }
-  } catch {
-    /* continue */
-  }
 
   el.hidden = false;
   el.classList.remove("is-out");
+  document.documentElement.classList.remove("hud-skip-boot");
   document.documentElement.classList.add("is-booting");
 
   return new Promise((resolve) => {
@@ -164,14 +156,9 @@ export function runHudBoot() {
       window.setTimeout(() => {
         el.hidden = true;
         document.documentElement.classList.remove("is-booting");
-        try {
-          sessionStorage.setItem(BOOT_KEY, "1");
-        } catch {
-          /* ok */
-        }
         resolve();
       }, 320);
-    }, 1500);
+    }, 1800);
   });
 }
 

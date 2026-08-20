@@ -1,5 +1,5 @@
 /* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
-const CACHE = "ironledger-v24.6";
+const CACHE = "ironledger-v24.7";
 const ASSETS = [
   "./",
   "./index.html",
