@@ -3032,3 +3032,152 @@ body.is-onboarding .rest-timer-bar {
     color: var(--text);
   }
 }
+
+/* —— Hologram HUD (option 1) —— */
+.hud-scan {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      rgba(0, 0, 0, 0.22) 2px 3px
+    );
+  mix-blend-mode: multiply;
+  opacity: 0.28;
+}
+.hud-scan::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--accent) 18%, transparent),
+    transparent
+  );
+  animation: hud-sweep 7.5s ease-in-out infinite;
+  opacity: 0.55;
+}
+@keyframes hud-sweep {
+  from { transform: translateY(-120%); }
+  to { transform: translateY(420%); }
+}
+
+.hud-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  gap: 0.35rem;
+  background: #070806;
+  text-align: center;
+  padding: 1.5rem;
+}
+.hud-boot[hidden],
+html.hud-skip-boot .hud-boot {
+  display: none !important;
+}
+.hud-boot.is-out {
+  animation: hud-boot-out 0.32s ease-in forwards;
+}
+.hud-boot-mark {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  margin-bottom: 0.65rem;
+  filter: contrast(1.1);
+  animation: hud-boot-in 0.5s ease-out;
+}
+.hud-boot-kicker {
+  font-family: var(--font-stamp);
+  color: var(--ember);
+  letter-spacing: 0.08em;
+  margin: 0;
+  font-size: 0.95rem;
+}
+.hud-boot-title {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  letter-spacing: 0.06em;
+  margin: 0;
+  color: var(--steel-bright);
+  text-shadow:
+    1px 0 0 color-mix(in srgb, var(--ember) 50%, transparent),
+    -1px 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.hud-boot-line {
+  font-family: var(--font-stamp);
+  color: var(--accent);
+  letter-spacing: 0.28em;
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  animation: hud-boot-blink 0.9s step-end infinite;
+}
+@keyframes hud-boot-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes hud-boot-out {
+  to { opacity: 0; }
+}
+@keyframes hud-boot-blink {
+  50% { opacity: 0.35; }
+}
+
+html.hud-on .hero {
+  transform: perspective(820px) rotateX(5.5deg);
+  transform-origin: center top;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.4),
+    1px 0 0 color-mix(in srgb, var(--ember) 28%, transparent),
+    -1px 0 0 color-mix(in srgb, var(--accent) 22%, transparent);
+}
+html.hud-on .hero-title {
+  text-shadow:
+    1px 0 0 color-mix(in srgb, var(--ember) 40%, transparent),
+    -1px 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+}
+html.hud-on .card {
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.28),
+    inset 0 0 22px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+html.hud-on .bottom-nav {
+  box-shadow:
+    0 -10px 28px rgba(0, 0, 0, 0.4),
+    0 -1px 0 color-mix(in srgb, var(--ember) 55%, transparent);
+}
+
+[data-theme="light"] .hud-scan {
+  opacity: 0.1;
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-scan::after,
+  .hud-boot-mark,
+  .hud-boot-line,
+  .hud-boot.is-out {
+    animation: none;
+  }
+  html.hud-on .hero {
+    transform: none;
+  }
+}
+html.hud-static .hero {
+  transform: none;
+}
+
+@media print {
+  .hud-scan,
+  .hud-boot {
+    display: none !important;
+  }
+}

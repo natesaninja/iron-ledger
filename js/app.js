@@ -102,6 +102,7 @@ import {
   envFromWindow,
 } from "./install.js";
 import { BRIEF_SECTIONS, briefJumpView } from "./brief.js";
+import { enableHudChrome, runHudBoot, wireHudAudio } from "./hud.js";
 import {
   PAIN_LEVELS,
   ENERGY_HIT_LEVELS,
@@ -114,7 +115,7 @@ import {
   buildJournalInsights,
 } from "./journal.js";
 
-const APP_VERSION = "24.5";
+const APP_VERSION = "24.6";
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -3589,6 +3590,7 @@ function startAppShell() {
 
 // ---------- start ----------
 async function boot() {
+  enableHudChrome();
   initTheme();
   initNav();
   initBrief();
@@ -3596,6 +3598,7 @@ async function boot() {
   initEvents();
   initSuppsUi();
   wireInviteGate();
+  wireHudAudio();
   document.getElementById("btn-check-update")?.addEventListener("click", () =>
     checkForAppUpdate({ manual: true })
   );
@@ -3631,6 +3634,7 @@ async function boot() {
   startAppShell();
   const fromShortcut = parseAppView(location.search);
   if (fromShortcut && fromShortcut !== "today") showView(fromShortcut);
+  runHudBoot();
   await registerServiceWorker();
   console.info(`${APP_NAME} v${APP_VERSION}`);
 }
