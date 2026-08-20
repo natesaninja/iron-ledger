@@ -1073,16 +1073,21 @@ function renderSessionCard(session) {
           <span class="set-num">${si + 1}</span>
           <div class="set-fields">
             <div class="set-load-line">
-              <div class="stepper stepper-w" data-field="w">
-                <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight">−</button>
-                <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" max="9999" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
-                <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight">+</button>
+              <div class="set-step-block">
+                <span class="set-step-label">Load</span>
+                <div class="stepper stepper-w" data-field="w">
+                  <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight">−</button>
+                  <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" max="9999" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
+                  <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight">+</button>
+                </div>
               </div>
-              <span class="set-x" aria-hidden="true">×</span>
-              <div class="stepper stepper-r" data-field="r">
-                <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps">−</button>
-                <input type="number" class="set-r" inputmode="numeric" step="1" min="0" max="999" placeholder="reps" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
-                <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps">+</button>
+              <div class="set-step-block">
+                <span class="set-step-label">Reps</span>
+                <div class="stepper stepper-r" data-field="r">
+                  <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps">−</button>
+                  <input type="number" class="set-r" inputmode="numeric" step="1" min="0" max="999" placeholder="8" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
+                  <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps">+</button>
+                </div>
               </div>
             </div>
             <div class="set-meta-line">
