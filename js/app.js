@@ -72,6 +72,7 @@ import {
   plateBreakdown,
   buildSessionSummary,
   buildMacroHandoffParams,
+  writeMacroHandoffPayload,
   buildCoverInsights,
   buildSessionCoverageCheck,
   suggestTrainingMaxes,
@@ -208,7 +209,11 @@ function applyAugustSeed(toastMsg = true) {
 }
 
 function persist() {
-  state = saveState(state);
+  try {
+    state = saveState(state);
+  } catch {
+    toast("Could not save — storage full. Export a backup.");
+  }
 }
 
 function getCoach() {
@@ -1817,14 +1822,7 @@ function openMacroLedgerHandoff(session, { auto = true, summary = null } = {}) {
   for (const [k, v] of Object.entries(params)) {
     if (v != null && v !== "") url.searchParams.set(k, String(v));
   }
-  try {
-    sessionStorage.setItem(
-      "il_last_macro_handoff",
-      `${params.date || ""}:${params.min || ""}`
-    );
-  } catch {
-    /* ok */
-  }
+  writeMacroHandoffPayload(params);
   const href = url.toString();
   // iPhone often blocks window.open from non-gesture paths; try popup then navigate.
   let opened = null;
@@ -3633,7 +3631,7 @@ async function boot() {
   startAppShell();
   const fromShortcut = parseAppView(location.search);
   if (fromShortcut && fromShortcut !== "today") showView(fromShortcut);
-  runHudBoot();
+  runHudBoot(APP_VERSION);
   await registerServiceWorker();
   console.info(`${APP_NAME} v${APP_VERSION}`);
 }

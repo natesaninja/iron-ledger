@@ -7,6 +7,8 @@ import {
   plateBreakdown,
   buildSessionSummary,
   buildMacroHandoffParams,
+  writeMacroHandoffPayload,
+  MACRO_HANDOFF_KEY,
   detectStagnation,
   countMissedSessions,
   buildCoverInsights,
@@ -156,6 +158,51 @@ describe("buildMacroHandoffParams", () => {
     assert.match(p.msets, /chest:2/);
     assert.equal(p.muscles, "chest");
     assert.equal(p.label, "Squat + BBB");
+  });
+});
+
+
+describe("writeMacroHandoffPayload", () => {
+  it("writes params + writtenAt ISO to session and local storage", () => {
+    const sessionMem = Object.create(null);
+    const localMem = Object.create(null);
+    const sessionStorage = {
+      setItem(k, v) {
+        sessionMem[k] = String(v);
+      },
+      getItem(k) {
+        return Object.prototype.hasOwnProperty.call(sessionMem, k) ? sessionMem[k] : null;
+      },
+    };
+    const localStorage = {
+      setItem(k, v) {
+        localMem[k] = String(v);
+      },
+      getItem(k) {
+        return Object.prototype.hasOwnProperty.call(localMem, k) ? localMem[k] : null;
+      },
+    };
+    const params = { iron: "1", date: "2026-08-01", min: "55", sets: "2" };
+    const at = "2026-08-01T18:00:00.000Z";
+    const payload = writeMacroHandoffPayload(params, { sessionStorage, localStorage, now: at });
+    assert.equal(payload.writtenAt, at);
+    assert.equal(payload.params.iron, "1");
+    assert.equal(payload.params.sets, "2");
+    const fromSession = JSON.parse(sessionMem[MACRO_HANDOFF_KEY]);
+    const fromLocal = JSON.parse(localMem[MACRO_HANDOFF_KEY]);
+    assert.deepEqual(fromSession, payload);
+    assert.deepEqual(fromLocal, payload);
+  });
+
+  it("still returns a payload when storage throws", () => {
+    const boom = {
+      setItem() {
+        throw new Error("quota");
+      },
+    };
+    const payload = writeMacroHandoffPayload({ iron: "1" }, { sessionStorage: boom, localStorage: boom });
+    assert.equal(payload.params.iron, "1");
+    assert.match(payload.writtenAt, /^\d{4}-\d{2}-\d{2}T/);
   });
 });
 
