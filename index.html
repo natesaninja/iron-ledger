@@ -45,7 +45,7 @@
   <link rel="preload" href="fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="css/app.css" />
   <script>
-    window.SENTRY_RELEASE = { id: "iron-ledger@24.8" };
+    window.SENTRY_RELEASE = { id: "iron-ledger@24.9" };
     window.sentryOnLoad = function () {
       Sentry.init({
         tracesSampleRate: location.hostname === "localhost" || location.hostname === "127.0.0.1" ? 1.0 : 0.15,
@@ -120,7 +120,7 @@
           <div class="brand-sub" id="greeting">FIELD OPS · MED</div>
         </div>
         <div class="cmd-meta">
-          <span class="app-version" id="app-version">v24.8</span>
+          <span class="app-version" id="app-version">v24.9</span>
           <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="Switch light / dark" aria-label="Switch light and dark theme">◐</button>
         </div>
       </div>
@@ -152,6 +152,12 @@
             <h2 id="coach-headline">Coach</h2>
           </div>
           <p class="coach-one-liner" id="coach-mission"></p>
+          <div class="log-cue" id="log-cue" hidden>
+            <div class="log-cue-kicker">From the log</div>
+            <p class="log-cue-title" id="log-cue-title"></p>
+            <p class="log-cue-body" id="log-cue-body"></p>
+            <button type="button" class="ghost-btn tiny" id="log-cue-action" hidden>Start 7-day deload</button>
+          </div>
           <details class="fold">
             <summary class="fold-sum">More coach tips</summary>
             <div class="fold-body">

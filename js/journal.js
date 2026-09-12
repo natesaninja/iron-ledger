@@ -245,3 +245,40 @@ export function buildJournalInsights({
 
   return { items, entries };
 }
+
+function isoDaysAgo(iso, n) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - n);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/**
+ * Lifts with repeated pain flags in the lookback window.
+ * @returns {Array<{ exerciseId: string, name: string, n: number, sum: number }>}
+ */
+export function repeatedLiftPainFlags(
+  exerciseJournal = {},
+  { today = null, lookbackDays = 14, minN = 2, minPain = 2, names = {} } = {}
+) {
+  const t = today || new Date().toISOString().slice(0, 10);
+  const from = isoDaysAgo(t, lookbackDays);
+  const painByEx = {};
+  for (const [day, map] of Object.entries(exerciseJournal || {})) {
+    if (day > t || day < from) continue;
+    for (const [eid, row] of Object.entries(map || {})) {
+      if (row?.pain == null || row.pain < minPain) continue;
+      if (!painByEx[eid]) {
+        painByEx[eid] = { exerciseId: eid, name: names[eid] || eid, n: 0, sum: 0 };
+      }
+      painByEx[eid].n += 1;
+      painByEx[eid].sum += row.pain;
+    }
+  }
+  return Object.values(painByEx)
+    .filter((v) => v.n >= minN)
+    .sort((a, b) => b.n - a.n);
+}

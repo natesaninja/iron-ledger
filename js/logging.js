@@ -370,6 +370,45 @@ export function buildMacroHandoffParams(session, dayLog, opts = {}) {
   return params;
 }
 
+export const MACRO_HANDOFF_KEY = "il_macro_handoff_v1";
+
+/**
+ * Persist MacroLedger handoff payload (params + writtenAt ISO) to session + local storage.
+ * @param {Record<string, string>} params
+ * @param {{ sessionStorage?: Storage|null, localStorage?: Storage|null, now?: Date|string }} [opts]
+ * @returns {{ params: Record<string, string>, writtenAt: string }}
+ */
+export function writeMacroHandoffPayload(params, opts = {}) {
+  const now = opts.now;
+  const writtenAt =
+    typeof now === "string" ? now : (now instanceof Date ? now : new Date()).toISOString();
+  const payload = { params: { ...(params || {}) }, writtenAt };
+  const json = JSON.stringify(payload);
+  const sessionStore =
+    opts.sessionStorage !== undefined
+      ? opts.sessionStorage
+      : typeof sessionStorage !== "undefined"
+        ? sessionStorage
+        : null;
+  const localStore =
+    opts.localStorage !== undefined
+      ? opts.localStorage
+      : typeof localStorage !== "undefined"
+        ? localStorage
+        : null;
+  try {
+    sessionStore?.setItem?.(MACRO_HANDOFF_KEY, json);
+  } catch {
+    /* private / quota */
+  }
+  try {
+    localStore?.setItem?.(MACRO_HANDOFF_KEY, json);
+  } catch {
+    /* private / quota */
+  }
+  return payload;
+}
+
 /**
  * Detect load stagnation: same top working weight for N completed sessions with logs.
  */

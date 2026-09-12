@@ -131,8 +131,24 @@ export function saveState(state) {
   } catch {
     /* quota / private mode */
   }
-  localStorage.setItem(KEY, JSON.stringify(payload));
-  return payload;
+  const json = JSON.stringify(payload);
+  try {
+    localStorage.setItem(KEY, json);
+    return payload;
+  } catch (err) {
+    // Quota path: drop the snapshot to free space, then retry the live write.
+    try {
+      localStorage.removeItem(SNAP_KEY);
+    } catch {
+      /* ignore */
+    }
+    try {
+      localStorage.setItem(KEY, json);
+      return payload;
+    } catch (retryErr) {
+      throw retryErr instanceof Error ? retryErr : new Error("Could not save");
+    }
+  }
 }
 
 export function hasAutosave() {

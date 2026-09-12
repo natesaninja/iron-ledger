@@ -38,3 +38,60 @@ describe("autosave snapshot", () => {
     assert.equal(hasAutosave(), true);
   });
 });
+
+describe("saveState quota", () => {
+  beforeEach(() => {
+    for (const k of Object.keys(mem)) delete mem[k];
+  });
+
+  it("clears the snapshot and retries the live write", () => {
+    saveState({ trainingDays: ["a"], logs: {}, completedSessions: {} });
+    assert.equal(hasAutosave(), false);
+
+    saveState({ trainingDays: ["b"], logs: {}, completedSessions: {} });
+    assert.equal(hasAutosave(), true);
+
+    let liveWrites = 0;
+    const origSet = globalThis.localStorage.setItem;
+    globalThis.localStorage.setItem = function (k, v) {
+      if (k === "strengthledger_v1") {
+        liveWrites += 1;
+        if (liveWrites === 1) {
+          const err = new Error("quota");
+          err.name = "QuotaExceededError";
+          throw err;
+        }
+      }
+      return origSet.call(this, k, v);
+    };
+    try {
+      const out = saveState({ trainingDays: ["c"], logs: {}, completedSessions: {} });
+      assert.deepEqual(out.trainingDays, ["c"]);
+      assert.equal(liveWrites, 2);
+      assert.equal(hasAutosave(), false);
+      assert.deepEqual(loadState().trainingDays, ["c"]);
+    } finally {
+      globalThis.localStorage.setItem = origSet;
+    }
+  });
+
+  it("throws when the retry still cannot write", () => {
+    const origSet = globalThis.localStorage.setItem;
+    globalThis.localStorage.setItem = function (k, v) {
+      if (k === "strengthledger_v1") {
+        const err = new Error("quota");
+        err.name = "QuotaExceededError";
+        throw err;
+      }
+      return origSet.call(this, k, v);
+    };
+    try {
+      assert.throws(
+        () => saveState({ trainingDays: ["x"], logs: {}, completedSessions: {} }),
+        { name: "QuotaExceededError" }
+      );
+    } finally {
+      globalThis.localStorage.setItem = origSet;
+    }
+  });
+});

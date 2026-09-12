@@ -4,6 +4,7 @@ import {
   patchExerciseJournal,
   patchSessionJournal,
   buildJournalInsights,
+  repeatedLiftPainFlags,
 } from "../js/journal.js";
 import { migrateState, STORE_VERSION } from "../js/store.js";
 
@@ -65,5 +66,22 @@ describe("store v6", () => {
     assert.ok(m.exerciseJournal);
     assert.ok(m.sessionJournal);
     assert.equal(m.version, 6);
+  });
+});
+
+describe("repeatedLiftPainFlags", () => {
+  it("counts pain >= 2 across days", () => {
+    const flags = repeatedLiftPainFlags(
+      {
+        "2026-08-01": { bb_bench: { pain: 2 } },
+        "2026-08-04": { bb_bench: { pain: 3 } },
+        "2026-08-05": { rdl: { pain: 1 } },
+      },
+      { today: "2026-08-08", names: { bb_bench: "Barbell Bench Press" } }
+    );
+    assert.equal(flags.length, 1);
+    assert.equal(flags[0].exerciseId, "bb_bench");
+    assert.equal(flags[0].n, 2);
+    assert.equal(flags[0].name, "Barbell Bench Press");
   });
 });

@@ -152,3 +152,166 @@ export function buildCoachScript({ stage, session, completedCount, nextSession }
           : "You’re in Custom. Drop what doesn’t work; keep what does. Rebuild plan after changes.",
   };
 }
+
+const PUSH_MUSCLES = new Set(["chest", "front_delts", "side_delts", "triceps"]);
+const PULL_MUSCLES = new Set(["lats", "upper_back", "rear_delts", "biceps"]);
+
+/**
+ * Planned push vs pull bias for a session (primary muscles × sets).
+ * @returns {"push"|"pull"|"balanced"|null}
+ */
+export function sessionPushPullBias(session) {
+  let push = 0;
+  let pull = 0;
+  for (const ex of session?.exercises || []) {
+    if (ex.isGap) continue;
+    const sets = Number(ex.sets) || 0;
+    for (const m of ex.primary || []) {
+      if (PUSH_MUSCLES.has(m)) push += sets;
+      if (PULL_MUSCLES.has(m)) pull += sets;
+    }
+  }
+  if (push + pull < 4) return null;
+  const ratio = push / Math.max(pull, 0.5);
+  if (ratio > 1.35) return "push";
+  if (ratio < 0.75) return "pull";
+  return "balanced";
+}
+
+function cueLoad(weight) {
+  if (weight == null || weight === "") return "";
+  const n = Number(weight);
+  if (!Number.isFinite(n)) return String(weight);
+  return Number.isInteger(n) ? String(n) : String(n);
+}
+
+function sessionIds(session) {
+  return new Set((session?.exercises || []).filter((e) => e && !e.isGap && e.exerciseId).map((e) => e.exerciseId));
+}
+
+/**
+ * One quiet Today cue from the log. Cover still holds the full insight list.
+ * Priority: deload → repeated pain on a lift in today → stagnation on a lift in today
+ * → missed days → push/pull skew that today would worsen → journal sleep/fuel → on-track.
+ *
+ * @returns {{ id: string, tone: string, title: string, body: string, action: string|null, exerciseId?: string } | null}
+ */
+export function buildLogCoachCue({
+  session = null,
+  completedCount = 0,
+  deloadSuggested = false,
+  deloadReason = "",
+  stagnant = [],
+  weekMissed = 0,
+  loggedBalance = null,
+  painOnSession = [],
+  journalCue = null,
+} = {}) {
+  const ids = sessionIds(session);
+
+  if (deloadSuggested) {
+    return {
+      id: "deload",
+      tone: "ember",
+      title: "Consider a 7-day deload",
+      body: `${deloadReason || "Recovery is behind the work"}. Low dose on train days — don't add sets to catch up.`,
+      action: "deload",
+    };
+  }
+
+  const pain = (painOnSession || []).find((p) => ids.has(p.exerciseId) && p.n >= 2);
+  if (pain) {
+    return {
+      id: "pain",
+      tone: "warn",
+      title: `${pain.name || pain.exerciseId} flagged ${pain.n}×`,
+      body: "Repeated pain on a lift that's in today. Swap it or keep the load easy — volume isn't worth a flare.",
+      action: null,
+      exerciseId: pain.exerciseId,
+    };
+  }
+
+  const stuck = (stagnant || []).find((s) => ids.has(s.exerciseId));
+  if (stuck) {
+    const load = cueLoad(stuck.weight);
+    return {
+      id: "stagnation",
+      tone: "warn",
+      title: `${stuck.name || stuck.exerciseId} stuck${load ? ` at ${load}` : ""}`,
+      body: `Same top load for ${stuck.sessions} sessions. Add a rep or a small plate — don't pile extra sets.`,
+      action: null,
+      exerciseId: stuck.exerciseId,
+    };
+  }
+
+  if (weekMissed >= 1) {
+    return {
+      id: "missed",
+      tone: "warn",
+      title: session ? "Don't stack missed volume" : "Missed days — don't stack volume",
+      body: session
+        ? `${weekMissed} missed this week. Today's session is the dose. Skip makeup sets.`
+        : `${weekMissed} train day${weekMissed === 1 ? "" : "s"} missed this week. Mark real days on Plan. Makeup sets steal recovery.`,
+      action: null,
+    };
+  }
+
+  const todayBias = sessionPushPullBias(session);
+  if (loggedBalance === "push" && todayBias === "push") {
+    return {
+      id: "balance-push",
+      tone: "warn",
+      title: "Push-heavy lately",
+      body: "Logged push is outrunning pull. If you swap, prefer a row or pulldown.",
+      action: null,
+    };
+  }
+  if (loggedBalance === "pull" && todayBias === "pull") {
+    return {
+      id: "balance-pull",
+      tone: "warn",
+      title: "Pull-heavy lately",
+      body: "Logged pull is outrunning push. Keep the presses if joints feel good.",
+      action: null,
+    };
+  }
+
+  if (journalCue?.id === "journal-sleep-energy") {
+    return {
+      id: "sleep",
+      tone: "warn",
+      title: "Sleep before extra sets",
+      body: "Low energy often follows poor sleep. MED today is enough.",
+      action: null,
+    };
+  }
+  if (journalCue?.id === "journal-fuel-pain") {
+    return {
+      id: "fuel",
+      tone: "warn",
+      title: "Fuel before hard sets",
+      body: "Under-fueled days have been pairing with more pain. Eat, then lift — don't add volume.",
+      action: null,
+    };
+  }
+
+  if (!session) return null;
+
+  if (completedCount >= 3) {
+    return {
+      id: "on-track",
+      tone: "ok",
+      title: "Load the next-target sheet",
+      body: "Work the listed loads. Rate Easy / Right / Hard after the set if feel shifts.",
+      action: null,
+    };
+  }
+
+  return {
+    id: "first-logs",
+    tone: "dim",
+    title: "Log the working sets",
+    body: "Weight × reps on each lift. Cover and next-session targets get sharp after a few hard days.",
+    action: null,
+  };
+}
