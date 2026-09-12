@@ -14,6 +14,11 @@ import {
   buildCoverInsights,
   formatLoad,
   seedSetsFromSuggestion,
+  lastWorkingSets,
+  isSkippedSet,
+  isHardWorkingSet,
+  skipSet,
+  unskipSet,
 } from "../js/logging.js";
 import { migrateState, needsBackupReminder, STORE_VERSION } from "../js/store.js";
 import { resolveCoachStage, countCompletedSessions } from "../js/coach.js";
@@ -256,6 +261,48 @@ describe("seedSetsFromSuggestion", () => {
     const sets = seedSetsFromSuggestion({ sets: [{ weight: 100, reps: 5 }] }, 3);
     assert.equal(sets.length, 3);
     assert.equal(sets[2].weight, 100);
+  });
+});
+
+describe("skip set", () => {
+  it("marks a set skipped and not hard", () => {
+    const s = skipSet({ weight: 185, reps: 5, hard: true }, "joint");
+    assert.equal(isSkippedSet(s), true);
+    assert.equal(isHardWorkingSet(s), false);
+    assert.equal(s.hard, false);
+    assert.equal(s.skipReason, "joint");
+    const back = unskipSet(s);
+    assert.equal(isSkippedSet(back), false);
+    assert.equal(back.hard, true);
+    assert.equal(back.weight, 185);
+  });
+
+  it("does not count skipped sets as last working or session hard work", () => {
+    const logs = {
+      "2026-08-01": {
+        exercises: {
+          bb_bench: {
+            sets: [
+              { weight: 135, reps: 5, hard: true },
+              { weight: 135, reps: 5, hard: true, skipped: true, skipReason: "time" },
+            ],
+          },
+        },
+      },
+    };
+    const last = lastWorkingSets(logs, "bb_bench", "2026-08-10");
+    assert.equal(last.sets.length, 1);
+    const summary = buildSessionSummary(
+      {
+        day: "2026-08-01",
+        label: "Push",
+        exercises: [{ exerciseId: "bb_bench", name: "Bench", sets: 3, primary: ["chest"] }],
+      },
+      logs["2026-08-01"]
+    );
+    assert.equal(summary.loggedHard, 1);
+    assert.equal(summary.muscleHard.chest, 1);
+    assert.equal(summary.lifts[0].skippedSets, 1);
   });
 });
 

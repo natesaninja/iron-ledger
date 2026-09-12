@@ -1536,6 +1536,29 @@ button.cmd-mark:active {
   white-space: nowrap;
 }
 
+.set-skip-btn {
+  min-height: 40px;
+}
+.set-skip-reason {
+  min-height: 40px;
+  max-width: 9.5rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.78rem;
+}
+.set-row.is-skipped {
+  opacity: 0.72;
+}
+.set-row.is-skipped .set-num {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+.set-row.is-skipped .set-load-line {
+  opacity: 0.45;
+}
+
 /* In-session feel adapt */
 .feel-row {
   margin-top: 0.55rem;

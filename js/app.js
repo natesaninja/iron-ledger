@@ -70,6 +70,10 @@ import {
   countQualitySessions,
   roughDaysRecent,
   seedSetsFromSuggestion,
+  isSkippedSet,
+  isHardWorkingSet,
+  skipSet,
+  unskipSet,
   plateBreakdown,
   buildSessionSummary,
   buildMacroHandoffParams,
@@ -118,7 +122,7 @@ import {
   repeatedLiftPainFlags,
 } from "./journal.js";
 
-const APP_VERSION = "24.9";
+const APP_VERSION = "24.10";
 /** Lift id from the Today log cue — highlighted on the session list. */
 let lastLogCueExerciseId = null;
 
@@ -1159,38 +1163,53 @@ function renderSessionCard(session) {
 
       const unit = state.settings.unitLabel || "lb";
       const setRows = sets
-        .map(
-          (s, si) => `
-        <div class="set-row" data-ex="${i}" data-set="${si}">
+        .map((s, si) => {
+          const skipped = isSkippedSet(s);
+          const reason = s.skipReason || "";
+          return `
+        <div class="set-row ${skipped ? "is-skipped" : ""}" data-ex="${i}" data-set="${si}">
           <span class="set-num">${si + 1}</span>
           <div class="set-fields">
             <div class="set-load-line">
               <div class="set-step-block">
                 <span class="set-step-label">Load</span>
                 <div class="stepper stepper-w" data-field="w">
-                  <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight">−</button>
-                  <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" max="9999" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" />
-                  <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight">+</button>
+                  <button type="button" class="step-btn" data-step-w="-2.5" data-ex="${i}" data-set="${si}" aria-label="Decrease weight" ${skipped ? "disabled" : ""}>−</button>
+                  <input type="number" class="set-w" inputmode="decimal" step="0.5" min="0" max="9999" placeholder="${escapeHtml(unit)}" value="${s.weight === "" || s.weight == null ? "" : escapeHtml(String(s.weight))}" aria-label="Weight set ${si + 1}" ${skipped ? "disabled" : ""} />
+                  <button type="button" class="step-btn" data-step-w="2.5" data-ex="${i}" data-set="${si}" aria-label="Increase weight" ${skipped ? "disabled" : ""}>+</button>
                 </div>
               </div>
               <div class="set-step-block">
                 <span class="set-step-label">Reps</span>
                 <div class="stepper stepper-r" data-field="r">
-                  <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps">−</button>
-                  <input type="number" class="set-r" inputmode="numeric" step="1" min="0" max="999" placeholder="8" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" />
-                  <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps">+</button>
+                  <button type="button" class="step-btn" data-step-r="-1" data-ex="${i}" data-set="${si}" aria-label="Decrease reps" ${skipped ? "disabled" : ""}>−</button>
+                  <input type="number" class="set-r" inputmode="numeric" step="1" min="0" max="999" placeholder="8" value="${s.reps === "" || s.reps == null ? "" : escapeHtml(String(s.reps))}" aria-label="Reps set ${si + 1}" ${skipped ? "disabled" : ""} />
+                  <button type="button" class="step-btn" data-step-r="1" data-ex="${i}" data-set="${si}" aria-label="Increase reps" ${skipped ? "disabled" : ""}>+</button>
                 </div>
               </div>
             </div>
             <div class="set-meta-line">
               <label class="set-meta-label">RPE
-                <input type="number" class="set-rpe" inputmode="decimal" step="0.5" min="1" max="10" placeholder="—" value="${s.rpe === "" || s.rpe == null ? "" : escapeHtml(String(s.rpe))}" aria-label="RPE set ${si + 1}" title="Optional RPE" />
+                <input type="number" class="set-rpe" inputmode="decimal" step="0.5" min="1" max="10" placeholder="—" value="${s.rpe === "" || s.rpe == null ? "" : escapeHtml(String(s.rpe))}" aria-label="RPE set ${si + 1}" title="Optional RPE" ${skipped ? "disabled" : ""} />
               </label>
-              <label class="set-hard" title="Hard working set"><input type="checkbox" class="set-hard-cb" ${s.hard !== false ? "checked" : ""} /> Hard</label>
+              ${
+                skipped
+                  ? ""
+                  : `<label class="set-hard" title="Hard working set"><input type="checkbox" class="set-hard-cb" ${s.hard !== false ? "checked" : ""} /> Hard</label>`
+              }
+              <button type="button" class="ghost-btn tiny set-skip-btn" data-skip-set="${i}" data-set="${si}" aria-pressed="${skipped ? "true" : "false"}">${skipped ? "Unskip" : "Skip set"}</button>
+              ${
+                skipped
+                  ? `<select class="set-skip-reason" data-skip-reason-ex="${i}" data-skip-reason-set="${si}" aria-label="Skip reason for set ${si + 1}">
+                <option value="">Reason</option>
+                ${SKIP_REASONS.map((r) => `<option value="${r.id}" ${reason === r.id ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
+              </select>`
+                  : ""
+              }
             </div>
           </div>
-        </div>`
-        )
+        </div>`;
+        })
         .join("");
 
       const plateHint =
@@ -1347,6 +1366,8 @@ function renderSessionCard(session) {
         reps: prev?.reps ?? "",
         hard: true,
         rpe: "",
+        skipped: false,
+        skipReason: null,
       });
       persist();
       renderSessionCard(session);
@@ -1357,7 +1378,7 @@ function renderSessionCard(session) {
       const i = +btn.dataset.sameLast;
       const root = document.querySelector(`.ex-item[data-i="${i}"]`);
       if (!root) return;
-      const rows = [...root.querySelectorAll(".set-row")];
+      const rows = [...root.querySelectorAll(".set-row")].filter((r) => !r.classList.contains("is-skipped"));
       if (rows.length < 2) {
         // copy from suggestion / last session into first empty
         saveExerciseLogFromDom(session, i, { silent: true });
@@ -1390,6 +1411,24 @@ function renderSessionCard(session) {
       if (cur.querySelector(".set-rpe")) cur.querySelector(".set-rpe").value = rpe;
       saveExerciseLogFromDom(session, i, { silent: true });
       toast("Same as last set");
+    });
+  });
+  list.querySelectorAll("[data-skip-set]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = +btn.dataset.skipSet;
+      const si = +btn.dataset.set;
+      toggleSkipSet(session, i, si);
+    });
+  });
+  list.querySelectorAll(".set-skip-reason").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      const i = +sel.dataset.skipReasonEx;
+      const si = +sel.dataset.skipReasonSet;
+      saveExerciseLogFromDom(session, i, { silent: true });
+      const ex = session.exercises[i];
+      const log = getExLog(session.day, ex.exerciseId);
+      if (log.sets[si]) log.sets[si].skipReason = sel.value || null;
+      persist();
     });
   });
   list.querySelectorAll("[data-done-set]").forEach((btn) => {
@@ -1531,6 +1570,20 @@ function renderSessionCard(session) {
   };
 }
 
+function toggleSkipSet(session, exIndex, setIndex) {
+  const ex = session.exercises[exIndex];
+  if (!ex || Number.isNaN(setIndex)) return;
+  saveExerciseLogFromDom(session, exIndex, { silent: true });
+  const log = getExLog(session.day, ex.exerciseId);
+  const cur = log.sets[setIndex];
+  if (!cur) return;
+  log.sets[setIndex] = isSkippedSet(cur) ? unskipSet(cur) : skipSet(cur);
+  persist();
+  saveSessionProgress(session);
+  toast(isSkippedSet(log.sets[setIndex]) ? `Set ${setIndex + 1} skipped` : `Set ${setIndex + 1} restored`);
+  renderSessionCard(session);
+}
+
 function saveExerciseLogFromDom(session, exIndex, { silent = false } = {}) {
   const ex = session.exercises[exIndex];
   if (!ex) return;
@@ -1541,18 +1594,22 @@ function saveExerciseLogFromDom(session, exIndex, { silent = false } = {}) {
     const w = row.querySelector(".set-w")?.value;
     const r = row.querySelector(".set-r")?.value;
     const rpe = row.querySelector(".set-rpe")?.value;
-    const hard = row.querySelector(".set-hard-cb")?.checked !== false;
+    const skipped = row.classList.contains("is-skipped");
+    const skipReason = row.querySelector(".set-skip-reason")?.value || null;
+    const hard = skipped ? false : row.querySelector(".set-hard-cb")?.checked !== false;
     return {
       weight: w === "" ? "" : +w,
       reps: r === "" ? "" : +r,
       rpe: rpe === "" ? "" : +rpe,
       hard,
+      skipped,
+      skipReason: skipped ? skipReason : null,
     };
   });
   const log = getExLog(session.day, ex.exerciseId);
   log.sets = sets;
-  // Mark done if any hard set has reps
-  if (sets.some((s) => s.hard !== false && +s.reps > 0)) {
+  // Mark done if any hard set has reps (skipped sets don't count)
+  if (sets.some((s) => isHardWorkingSet(s))) {
     ex.done = true;
   }
   persist();
@@ -1646,8 +1703,10 @@ function showSessionSummary(session) {
   const liftLines = summary.lifts
     .map((l) =>
       l.skipped
-        ? `<li class="dim">${escapeHtml(l.name)} — skipped</li>`
-        : `<li><strong>${escapeHtml(l.name)}</strong> ${escapeHtml(l.top)} · ${l.sets} hard</li>`
+        ? `<li class="dim">${escapeHtml(l.name)} — skipped${l.skippedSets ? ` (${l.skippedSets} set${l.skippedSets === 1 ? "" : "s"})` : ""}</li>`
+        : `<li><strong>${escapeHtml(l.name)}</strong> ${escapeHtml(l.top)} · ${l.sets} hard${
+            l.skippedSets ? ` · ${l.skippedSets} skipped` : ""
+          }</li>`
     )
     .join("");
   const check = buildSessionCoverageCheck(session, dayLog, state.sessionAdapt?.[session.day]);
@@ -1667,7 +1726,7 @@ function showSessionSummary(session) {
     const rpes = [];
     for (const ex of session.exercises || []) {
       const sets = state.logs?.[session.day]?.exercises?.[ex.exerciseId]?.sets || [];
-      for (const s of sets) if (+s.rpe > 0) rpes.push(+s.rpe);
+      for (const s of sets) if (s.skipped !== true && +s.rpe > 0) rpes.push(+s.rpe);
     }
     if (rpes.length) sj.sessionRpe = Math.round((rpes.reduce((a, b) => a + b, 0) / rpes.length) * 2) / 2;
   }
@@ -2642,7 +2701,7 @@ function renderSettingsForm() {
   if (restoreBtn) restoreBtn.disabled = !hasAutosave();
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · log coach · gym card · auto-save`;
+    verNote.textContent = `v${APP_VERSION} · skip set · log coach · gym card`;
   }
 
   renderEquipmentSettings();

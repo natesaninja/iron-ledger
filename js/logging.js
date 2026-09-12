@@ -102,6 +102,43 @@ export function emptyExerciseLog() {
   return { sets: [], skipReason: null };
 }
 
+/** A set the lifter chose not to do (vs a whole-lift skip). */
+export function isSkippedSet(s) {
+  return !!(s && s.skipped === true);
+}
+
+/**
+ * Hard working set that counts for coverage, PRs, and next-session targets.
+ * Skipped sets never count, even if they still have a leftover load.
+ */
+export function isHardWorkingSet(s, { requireLoad = false } = {}) {
+  if (!s || s.skipped === true || s.hard === false) return false;
+  if (requireLoad) return +s.weight > 0 && +s.reps > 0;
+  return +s.reps > 0 || +s.weight > 0;
+}
+
+export function skipSet(set = {}, reason = null) {
+  return {
+    weight: set.weight ?? "",
+    reps: set.reps ?? "",
+    rpe: set.rpe ?? "",
+    hard: false,
+    skipped: true,
+    skipReason: reason || set.skipReason || null,
+  };
+}
+
+export function unskipSet(set = {}) {
+  return {
+    weight: set.weight ?? "",
+    reps: set.reps ?? "",
+    rpe: set.rpe ?? "",
+    hard: true,
+    skipped: false,
+    skipReason: null,
+  };
+}
+
 export function ensureDayLog(logs, iso) {
   if (!logs[iso]) logs[iso] = { exercises: {} };
   if (!logs[iso].exercises) logs[iso].exercises = {};
@@ -142,7 +179,7 @@ export function lastWorkingSets(logs, exerciseId, beforeIso = null) {
       continue;
     }
     const ex = logs[day]?.exercises?.[exerciseId];
-    const hard = (ex?.sets || []).filter((s) => s && (s.hard !== false) && (s.reps > 0 || s.weight > 0));
+    const hard = (ex?.sets || []).filter((s) => isHardWorkingSet(s));
     if (hard.length) {
       return { day, sets: hard.map((s) => ({ weight: +s.weight || 0, reps: +s.reps || 0, rpe: s.rpe })) };
     }
@@ -263,11 +300,10 @@ export function buildSessionSummary(session, dayLog) {
   const lifts = [];
   for (const ex of session?.exercises || []) {
     const exLog = dayLog?.exercises?.[ex.exerciseId];
-    const hard = (exLog?.sets || []).filter(
-      (s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)
-    );
+    const hard = (exLog?.sets || []).filter((s) => isHardWorkingSet(s));
+    const skippedSets = (exLog?.sets || []).filter((s) => isSkippedSet(s)).length;
     loggedHard += hard.length;
-    loggedAny += (exLog?.sets || []).filter((s) => s && (+s.reps > 0 || +s.weight > 0)).length;
+    loggedAny += (exLog?.sets || []).filter((s) => s && !isSkippedSet(s) && (+s.reps > 0 || +s.weight > 0)).length;
     if (hard.length) {
       const top = hard.reduce((a, b) =>
         epley1RM(b.weight, b.reps) > epley1RM(a.weight, a.reps) ? b : a
@@ -276,11 +312,18 @@ export function buildSessionSummary(session, dayLog) {
         name: ex.name,
         exerciseId: ex.exerciseId,
         sets: hard.length,
+        skippedSets,
         top: `${formatLoad(top.weight)}×${top.reps}`,
         e1rm: epley1RM(top.weight, top.reps),
       });
-    } else if (exLog?.skipReason) {
-      lifts.push({ name: ex.name, exerciseId: ex.exerciseId, skipped: true, skipReason: exLog.skipReason });
+    } else if (exLog?.skipReason || skippedSets) {
+      lifts.push({
+        name: ex.name,
+        exerciseId: ex.exerciseId,
+        skipped: true,
+        skipReason: exLog?.skipReason || null,
+        skippedSets,
+      });
     }
   }
   const pct = planned > 0 ? Math.round((loggedHard / planned) * 100) : 0;
@@ -288,9 +331,7 @@ export function buildSessionSummary(session, dayLog) {
   const muscleHard = {};
   for (const ex of session?.exercises || []) {
     const exLog = dayLog?.exercises?.[ex.exerciseId];
-    const hardN = (exLog?.sets || []).filter(
-      (s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)
-    ).length;
+    const hardN = (exLog?.sets || []).filter((s) => isHardWorkingSet(s)).length;
     if (!hardN) continue;
     for (const m of ex.primary || []) {
       muscleHard[m] = (muscleHard[m] || 0) + hardN;
@@ -417,7 +458,7 @@ export function detectStagnation(logs, { minSessions = 3, lookback = 12 } = {}) 
   const days = Object.keys(logs || {}).sort().reverse().slice(0, lookback);
   for (const day of days) {
     for (const [eid, exLog] of Object.entries(logs[day]?.exercises || {})) {
-      const hard = (exLog.sets || []).filter((s) => s && +s.weight > 0 && +s.reps > 0 && s.hard !== false);
+      const hard = (exLog.sets || []).filter((s) => isHardWorkingSet(s, { requireLoad: true }));
       if (!hard.length) continue;
       const topW = Math.max(...hard.map((s) => +s.weight));
       if (!byEx[eid]) byEx[eid] = [];
@@ -493,7 +534,7 @@ export function buildCoverInsights({
     for (const [eid, exLog] of Object.entries(logs[day]?.exercises || {})) {
       const meta = EX_MAP[eid];
       if (!meta) continue;
-      const n = (exLog.sets || []).filter((s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)).length;
+      const n = (exLog.sets || []).filter((s) => isHardWorkingSet(s)).length;
       if (!n) continue;
       for (const m of meta.primary || []) loggedWin[m] = (loggedWin[m] || 0) + n;
       for (const m of meta.secondary || []) loggedWin[m] = (loggedWin[m] || 0) + n * 0.5;
@@ -679,7 +720,7 @@ export function suggestTrainingMaxes(logs, { lookbackDays = 90 } = {}) {
     if (day < cutoff) continue;
     for (const [eid, exLog] of Object.entries(logs[day]?.exercises || {})) {
       const hard = (exLog.sets || []).filter(
-        (s) => s && s.hard !== false && +s.weight > 0 && +s.reps > 0
+        (s) => isHardWorkingSet(s, { requireLoad: true })
       );
       if (!hard.length) continue;
       const e1 = bestSetE1rm(hard);
@@ -807,7 +848,7 @@ export function computePrBoard(logs) {
       if (!meta || meta.role === "isolation") continue;
       const pat = meta.pattern;
       if (!byPattern.hasOwnProperty(pat)) continue;
-      const hard = (exLog.sets || []).filter((s) => s && (+s.weight || 0) > 0 && (+s.reps || 0) > 0);
+      const hard = (exLog.sets || []).filter((s) => isHardWorkingSet(s, { requireLoad: true }));
       if (!hard.length) continue;
       for (const s of hard) {
         const e1 = epley1RM(s.weight, s.reps);
@@ -846,7 +887,7 @@ export function buildHistory(completedSessions, logs, planSessions = []) {
     let prs = 0;
     const lifts = [];
     for (const [eid, exLog] of Object.entries(log?.exercises || {})) {
-      const sets = (exLog.sets || []).filter((s) => s && (s.hard !== false));
+      const sets = (exLog.sets || []).filter((s) => isHardWorkingSet(s));
       if (!sets.length && !exLog.skipReason) continue;
       hardSets += sets.length;
       const name = EX_MAP[eid]?.name || eid;
@@ -884,7 +925,7 @@ export function loggedCoverage(logs, fromIso, toIso) {
     for (const [eid, exLog] of Object.entries(dayLog.exercises || {})) {
       const meta = EX_MAP[eid];
       if (!meta) continue;
-      const n = (exLog.sets || []).filter((s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0)).length;
+      const n = (exLog.sets || []).filter((s) => isHardWorkingSet(s)).length;
       if (!n) continue;
       for (const m of meta.primary || []) cov[m] = (cov[m] || 0) + n;
       for (const m of meta.secondary || []) cov[m] = (cov[m] || 0) + n * 0.5;
@@ -903,7 +944,7 @@ export function countQualitySessions(completedSessions, logs) {
     for (const [eid, exLog] of Object.entries(exs)) {
       const meta = EX_MAP[eid];
       if (!meta || meta.role !== "compound") continue;
-      if ((exLog.sets || []).some((s) => s && s.hard !== false && (+s.reps > 0 || +s.weight > 0))) {
+      if ((exLog.sets || []).some((s) => isHardWorkingSet(s))) {
         ok = true;
         break;
       }
@@ -911,7 +952,7 @@ export function countQualitySessions(completedSessions, logs) {
     // fallback: any logged hard set counts as partial quality after first weeks
     if (!ok) {
       ok = Object.values(exs).some((exLog) =>
-        (exLog.sets || []).some((s) => s && s.hard !== false && +s.reps > 0)
+        (exLog.sets || []).some((s) => isHardWorkingSet(s))
       );
     }
     if (ok) n++;
@@ -976,9 +1017,9 @@ export function seedSetsFromSuggestion(suggest, plannedSets) {
     const out = [];
     for (let i = 0; i < n; i++) {
       const s = suggest.sets[i] || suggest.sets[suggest.sets.length - 1];
-      out.push({ weight: s.weight, reps: s.reps, hard: true, rpe: "" });
+      out.push({ weight: s.weight, reps: s.reps, hard: true, rpe: "", skipped: false, skipReason: null });
     }
     return out;
   }
-  return Array.from({ length: n }, () => ({ weight: "", reps: "", hard: true, rpe: "" }));
+  return Array.from({ length: n }, () => ({ weight: "", reps: "", hard: true, rpe: "", skipped: false, skipReason: null }));
 }

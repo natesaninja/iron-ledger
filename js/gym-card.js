@@ -18,9 +18,11 @@ export function gymCardRows(session, logs = {}, nameOf = (id) => id) {
       const s = logged[i] || {};
       lines.push({
         n: i + 1,
-        weight: s.weight === 0 || s.weight ? String(s.weight) : "",
-        reps: s.reps === 0 || s.reps ? String(s.reps) : "",
-        rpe: s.rpe === 0 || s.rpe ? String(s.rpe) : "",
+        weight: s.skipped ? "SKIP" : s.weight === 0 || s.weight ? String(s.weight) : "",
+        reps: s.skipped ? "—" : s.reps === 0 || s.reps ? String(s.reps) : "",
+        rpe: s.skipped ? "" : s.rpe === 0 || s.rpe ? String(s.rpe) : "",
+        skipped: !!s.skipped,
+        note: s.skipped ? "Skipped" : "",
       });
     }
     return {
@@ -62,7 +64,7 @@ export function gymCardHtml(session, logs, opts = {}) {
             <td>${escapeHtml(ln.weight)}</td>
             <td>${escapeHtml(ln.reps)}</td>
             <td>${escapeHtml(ln.rpe)}</td>
-            <td></td>
+            <td>${escapeHtml(ln.note || "")}</td>
           </tr>`
         )
         .join("");
