@@ -13,7 +13,7 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
 Tap **IL** in the header (or Setup → Field brief) for an in-app overview of every tab.
 
-## Features (v24.10)
+## Features (v24.11)
 
 - Invite-only unlock per device (optional; off by default)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
@@ -23,6 +23,7 @@ Tap **IL** in the header (or Setup → Field brief) for an in-app overview of ev
 - **Programs** — educational templates: 5/3/1 BBB, PPL hypertrophy, Upper/Lower, classic bro split  
 - **Program Cover** — adherence (days done/missed), slot mix, planned primary gaps  
 - **Custom targets** — emphasize push/pull/legs/arms; planner rebuilds sessions around your map  
+- **Short on time** — stacks lagging compounds at the top of Today (isolation last) so a truncated session still hits the work that counts  
 - MED / OED / rough dose by feel  
 - **Set log** — weight × reps × RPE, +/− steppers, same-as-last, Done→rest, **skip a set** (or the whole lift), plate hint  
 - **Feel adapt** — Easy / Right / Hard (+ RPE suggestion highlight)  

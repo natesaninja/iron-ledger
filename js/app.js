@@ -22,6 +22,7 @@ import {
   weekdayShort,
   monthLabel,
 } from "./planner.js";
+import { muscleNeedMap, orderExercisesByNeed } from "./need-order.js";
 import {
   loadState,
   saveState,
@@ -122,7 +123,7 @@ import {
   repeatedLiftPainFlags,
 } from "./journal.js";
 
-const APP_VERSION = "24.10";
+const APP_VERSION = "24.11";
 /** Lift id from the Today log cue — highlighted on the session list. */
 let lastLogCueExerciseId = null;
 
@@ -193,6 +194,7 @@ function ensureSeeded() {
   if (state.settings.timeBoxMinutes == null) state.settings.timeBoxMinutes = 0;
   if (state.settings.coachQualityGates == null) state.settings.coachQualityGates = true;
   if (state.settings.showWarmups == null) state.settings.showWarmups = true;
+  if (state.settings.stackByNeed == null) state.settings.stackByNeed = true;
   if (state.settings.restDefaultSec == null) state.settings.restDefaultSec = 90;
   if (state.settings.barWeight == null) state.settings.barWeight = 45;
   if (state.settings.unitLabel == null) state.settings.unitLabel = "lb";
@@ -789,7 +791,9 @@ function renderCoachPanel(session) {
   const doseEl = document.getElementById("coach-dose-line");
   if (doseEl) {
     doseEl.textContent = session
-      ? `Dose today: ${dose.short} — change with the buttons above if energy shifts.`
+      ? stackByNeedOn()
+        ? `Dose today: ${dose.short}. Short on time: do the list top-down — lagging compounds first, isolation last.`
+        : `Dose today: ${dose.short} — change with the buttons above if energy shifts.`
       : `Default dose: ${dose.short}.`;
   }
   renderLogCue(session, n);
@@ -1038,6 +1042,7 @@ function renderToday() {
 
   const hero = document.getElementById("today-hero");
   const session = focusIso ? sessionByDay(focusIso) : null;
+  applyNeedOrder(session);
   renderWeekStrip();
   renderReadinessCard();
   renderProgressionSheet(session);
@@ -1100,6 +1105,22 @@ function getExLog(iso, exerciseId) {
   return ensureExerciseLog(state.logs, iso, exerciseId);
 }
 
+function stackByNeedOn() {
+  return state.settings.stackByNeed !== false;
+}
+
+/** Put lagging compounds first so a short session still hits the work that counts. */
+function applyNeedOrder(session) {
+  if (!session?.exercises?.length || !stackByNeedOn()) return;
+  const muscleNeed = muscleNeedMap({
+    logs: state.logs,
+    settings: state.settings,
+    today: todayISO(),
+    sessionDay: session.day,
+  });
+  session.exercises = orderExercisesByNeed(session.exercises, { muscleNeed });
+}
+
 function renderSessionCard(session) {
   const title = document.getElementById("today-session-title");
   const rationale = document.getElementById("today-rationale");
@@ -1110,6 +1131,8 @@ function renderSessionCard(session) {
     title.textContent = "Session";
     rationale.textContent = "Mark train days on the Plan tab.";
     list.innerHTML = "";
+    const barEmpty = document.getElementById("need-order-bar");
+    if (barEmpty) barEmpty.innerHTML = "";
     actions.innerHTML = `<button type="button" class="primary-btn" id="go-plan">Open Plan</button>`;
     document.getElementById("go-plan")?.addEventListener("click", () => {
       document.querySelector('.nav-btn[data-view="plan"]').click();
@@ -1118,6 +1141,7 @@ function renderSessionCard(session) {
   }
 
   title.textContent = `${weekdayShort(session.day)} · ${session.label}`;
+  const stackOn = stackByNeedOn();
   const box = +state.settings.timeBoxMinutes || 0;
   const timeNote = box >= 25 ? `Time-box ${box} min.` : "";
   const sessionScheme = (session.schemeNotes || "").trim();
@@ -1143,6 +1167,30 @@ function renderSessionCard(session) {
       rationale.innerHTML = "";
     }
   }
+  const needBar = document.getElementById("need-order-bar");
+  if (needBar) {
+    needBar.innerHTML = `
+      <label class="need-order-toggle">
+        <input type="checkbox" id="stack-by-need" ${stackOn ? "checked" : ""} />
+        Short on time — biggest needs first
+      </label>
+      <p class="hint need-order-hint">${
+        stackOn
+          ? "Compounds covering lagging muscles at the top. Isolation last. Work top-down; skip the bottom if the clock dies."
+          : "Plan order. Turn on to stack lagging compounds first when you’re rushed."
+      }</p>`;
+    needBar.querySelector("#stack-by-need")?.addEventListener("change", (ev) => {
+      state.settings.stackByNeed = !!ev.target.checked;
+      persist();
+      if (!state.settings.stackByNeed) rebuild();
+      else {
+        applyNeedOrder(session);
+        renderToday();
+      }
+      toast(state.settings.stackByNeed ? "Stacked by need" : "Plan order restored");
+    });
+  }
+
   const { caps } = getCoach();
   const showWarm = state.settings.showWarmups !== false;
 
@@ -2654,6 +2702,8 @@ function renderSettingsForm() {
   if (timeBox) timeBox.value = String(s.timeBoxMinutes || 0);
   const bw = document.getElementById("set-bw");
   if (bw) bw.value = s.bodyweightKg || "";
+  const stackNeed = document.getElementById("set-stack-need");
+  if (stackNeed) stackNeed.checked = s.stackByNeed !== false;
   const warm = document.getElementById("set-warmups");
   if (warm) warm.checked = s.showWarmups !== false;
   const qg = document.getElementById("set-quality-gates");
@@ -2701,7 +2751,7 @@ function renderSettingsForm() {
   if (restoreBtn) restoreBtn.disabled = !hasAutosave();
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · skip set · log coach · gym card`;
+    verNote.textContent = `v${APP_VERSION} · need-first · skip set · gym card`;
   }
 
   renderEquipmentSettings();
@@ -2789,6 +2839,8 @@ function saveSettingsFromForm() {
     const v = +bw.value;
     state.settings.bodyweightKg = v >= 30 ? v : null;
   }
+  const stackNeedSave = document.getElementById("set-stack-need");
+  if (stackNeedSave) state.settings.stackByNeed = stackNeedSave.checked;
   const warm = document.getElementById("set-warmups");
   if (warm) state.settings.showWarmups = warm.checked;
   const qg = document.getElementById("set-quality-gates");
