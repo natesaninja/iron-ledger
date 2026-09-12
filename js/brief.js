@@ -22,7 +22,7 @@ export const BRIEF_SECTIONS = [
     code: "03",
     title: "Set log",
     view: "today",
-    body: "Weight × reps × optional RPE. +/− steps the load. Same as last, Done → rest timer, plate hint on heavy barbell work. Easy / Right / Hard adapts remaining sets. Skip a lift with a reason if gear or joints say no.",
+    body: "Weight × reps × optional RPE. +/− steps the load. Same as last, Done → rest timer, plate hint on heavy barbell work. Skip one set without dropping the lift — or skip the whole lift with a reason. Easy / Right / Hard adapts remaining sets.",
   },
   {
     id: "plan",

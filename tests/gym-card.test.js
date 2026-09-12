@@ -27,6 +27,29 @@ describe("gymCardRows", () => {
     assert.equal(rows[0].lines[0].weight, "185");
     assert.equal(rows[0].lines[1].weight, "");
   });
+
+  it("prints SKIP on a skipped set", () => {
+    const session = {
+      day: "2026-08-20",
+      exercises: [{ exerciseId: "bb_bench", sets: 3, reps: "5-8", role: "compound" }],
+    };
+    const logs = {
+      "2026-08-20": {
+        exercises: {
+          bb_bench: {
+            sets: [
+              { weight: 185, reps: 6, rpe: 8 },
+              { weight: 185, reps: 0, skipped: true },
+            ],
+          },
+        },
+      },
+    };
+    const rows = gymCardRows(session, logs);
+    assert.equal(rows[0].lines[1].skipped, true);
+    assert.equal(rows[0].lines[1].weight, "SKIP");
+    assert.equal(rows[0].lines[1].note, "Skipped");
+  });
 });
 
 describe("gymCardHeading", () => {

@@ -28,7 +28,7 @@ export function setBounds(role) {
  */
 export function avgHardRpe(sets = []) {
   const vals = (sets || [])
-    .filter((s) => s && s.hard !== false && +s.rpe > 0)
+    .filter((s) => s && s.skipped !== true && s.hard !== false && +s.rpe > 0)
     .map((s) => +s.rpe);
   if (!vals.length) return null;
   return vals.reduce((a, b) => a + b, 0) / vals.length;
