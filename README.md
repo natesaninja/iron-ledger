@@ -13,10 +13,11 @@ To turn invites back on: set `INVITE_REQUIRED = true` in `js/invite-config.js`.
 
 Tap **IL** in the header (or Setup → Field brief) for an in-app overview of every tab.
 
-## Features (v24.3)
+## Features (v24.9)
 
-- Invite-only unlock per device (optional)  
+- Invite-only unlock per device (optional; off by default)  
 - Progressive coach: Guided → Building → Custom (coaching tone; exclude / swap / split always open)  
+- **Log coach** — Today shows one cue from your log (stagnation, missed days, push/pull skew, pain flags, deload). Cover still has the full list.  
 - **Equipment** — commercial gym or home presets; expanded **home-gym** library (goblet, floor press, bands, BW)  
 - **Training modes** — MED Auto (coverage-driven), Programs (fixed templates), Custom (weekly muscle targets)  
 - **Programs** — educational templates: 5/3/1 BBB, PPL hypertrophy, Upper/Lower, classic bro split  
@@ -28,24 +29,24 @@ Tap **IL** in the header (or Setup → Field brief) for an in-app overview of ev
 - **Next targets** — progression sheet from last hard sets (Today hero + per-lift)  
 - **Training week strip** — Mon–Sun train/done/missed/rough at a glance  
 - **Training journal** — per-lift pain/energy/joint; session energy/mood/sleep/fuel/stack; Cover pattern insights  
-
-
 - **Session coverage check** — end-of-session muscle light list + feel adjustment recap  
 - **TM from logs** — suggest 5/3/1 training maxes from recent hard sets  
 - Rest timer with wake lock + stronger vibrate · skip reasons · time-box · 7-day deload  
-- **Session summary** on complete → MacroLedger handoff (sets, dose, muscles, msets, mode/program, bodyweight; iPhone open fallback)  
+- **Session summary** on complete → MacroLedger handoff (sets, dose, muscles, msets, mode/program, bodyweight; persisted `il_macro_handoff_v1`; iPhone open fallback)  
 - **Cover** — planned vs logged · insights (volume, stagnation, push/pull, deload suggest) · history · PR board  
 - **Supps** — evidence browser + personal stack + daily check-in  
 - Onboarding: where you train → how you train → mark Plan days  
 - **Gym card** — print today’s session (load / reps / RPE blanks) if the phone stays in the locker  
-- Auto-save of the previous write + copy/export/share backup · weekly reminder  
+- Field HUD — boot plate once per version (no audio; gym music stays in control)  
+- Auto-save of the previous write (quota retry) + copy/export/share backup · weekly reminder  
 - Offline type (self-hosted fonts) · maskable home-screen icon · Sentry on the live build  
 - Offline · local-only · export / share backup · weekly backup reminder · versioned store  
+- CI: tests must pass before GitHub Pages deploy  
 
 ## Local
 
 ```powershell
-cd $env:USERPROFILE\strengthledger
+cd $env:USERPROFILE\iron-ledger
 .\run.bat
 ```
 

@@ -39,6 +39,7 @@ import {
   resolveCoachStage,
   stageCapabilities,
   buildCoachScript,
+  buildLogCoachCue,
 } from "./coach.js";
 import {
   inviteRequired,
@@ -114,9 +115,12 @@ import {
   patchSessionJournal,
   emptySessionJournalEntry,
   buildJournalInsights,
+  repeatedLiftPainFlags,
 } from "./journal.js";
 
-const APP_VERSION = "24.8";
+const APP_VERSION = "24.9";
+/** Lift id from the Today log cue — highlighted on the session list. */
+let lastLogCueExerciseId = null;
 
 /** Collapsed “more info” block — keeps the gym floor quiet for skimmers */
 function foldHtml(summary, bodyHtml, { open = false, className = "" } = {}) {
@@ -784,8 +788,90 @@ function renderCoachPanel(session) {
       ? `Dose today: ${dose.short} — change with the buttons above if energy shifts.`
       : `Default dose: ${dose.short}.`;
   }
+  renderLogCue(session, n);
   renderStackCheckinBanner();
   renderRestTimerBar();
+}
+
+function renderLogCue(session, completedCount) {
+  const el = document.getElementById("log-cue");
+  if (!el) return;
+  const insights = buildCoverInsights({
+    logs: state.logs,
+    completedSessions: state.completedSessions,
+    dayDose: state.dayDose,
+    plan,
+    today: todayISO(),
+    lookbackDays: 14,
+  });
+  const journal = buildJournalInsights({
+    sessionJournal: state.sessionJournal,
+    exerciseJournal: state.exerciseJournal,
+    completedSessions: state.completedSessions,
+    dayDose: state.dayDose,
+    today: todayISO(),
+    lookbackDays: 21,
+  });
+  const strip = buildTrainingWeekStrip({
+    trainingDays: state.trainingDays,
+    completedSessions: state.completedSessions,
+    dayDose: state.dayDose,
+    deloadUntil: state.deloadUntil,
+    today: todayISO(),
+  });
+  const names = Object.fromEntries(EXERCISES.map((e) => [e.id, e.name]));
+  const painOnSession = repeatedLiftPainFlags(state.exerciseJournal, {
+    today: todayISO(),
+    names,
+  });
+  const loggedBalance = (insights.items || []).some((i) => i.id === "balance-push")
+    ? "push"
+    : (insights.items || []).some((i) => i.id === "balance-pull")
+      ? "pull"
+      : null;
+  const journalCue =
+    (journal.items || []).find((i) =>
+      ["journal-sleep-energy", "journal-fuel-pain", "journal-alcohol"].includes(i.id)
+    ) || null;
+
+  const cue = buildLogCoachCue({
+    session,
+    completedCount,
+    deloadSuggested: insights.deloadSuggested,
+    deloadReason: insights.deloadReason,
+    stagnant: insights.stagnant || [],
+    weekMissed: strip.missedCount,
+    loggedBalance,
+    painOnSession,
+    journalCue,
+  });
+
+  lastLogCueExerciseId = cue?.exerciseId || null;
+  if (!cue) {
+    el.hidden = true;
+    el.className = "log-cue";
+    return;
+  }
+
+  el.hidden = false;
+  el.className = `log-cue tone-${cue.tone || "dim"}`;
+  const title = document.getElementById("log-cue-title");
+  const body = document.getElementById("log-cue-body");
+  const action = document.getElementById("log-cue-action");
+  if (title) title.textContent = cue.title;
+  if (body) body.textContent = cue.body;
+  if (action) {
+    const showDeload = cue.action === "deload";
+    action.hidden = !showDeload;
+    action.onclick = showDeload
+      ? () => {
+          if (!confirm("Start a 7-day deload? Train days will use Low (Rough) dose until it ends.")) return;
+          startDeloadWeek();
+          renderToday();
+          toast("Deload started");
+        }
+      : null;
+  }
 }
 
 function renderDosePicker(iso) {
@@ -1145,7 +1231,9 @@ function renderSessionCard(session) {
       const ej = getExerciseJournalEntry(session.day, ex.exerciseId) || {};
 
       return `
-    <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""}" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
+    <li class="ex-item ${ex.done ? "done" : ""} ${skip ? "skipped" : ""} ${
+        lastLogCueExerciseId && ex.exerciseId === lastLogCueExerciseId ? "log-cue-hit" : ""
+      }" data-i="${i}" data-eid="${escapeHtml(ex.exerciseId)}">
       <button type="button" class="ex-check" data-toggle="${i}" aria-label="Mark done">${ex.done ? "✓" : ""}</button>
       <div class="ex-main">
         <div class="ex-name">${escapeHtml(ex.name)}</div>
@@ -2554,7 +2642,7 @@ function renderSettingsForm() {
   if (restoreBtn) restoreBtn.disabled = !hasAutosave();
   const verNote = document.getElementById("data-version-note");
   if (verNote) {
-    verNote.textContent = `v${APP_VERSION} · gym card · auto-save · offline type`;
+    verNote.textContent = `v${APP_VERSION} · log coach · gym card · auto-save`;
   }
 
   renderEquipmentSettings();

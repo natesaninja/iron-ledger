@@ -2761,6 +2761,53 @@ body.is-onboarding .rest-timer-bar {
   line-height: 1.35 !important;
   color: var(--text-muted) !important;
 }
+
+.log-cue {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.7rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-inset);
+}
+.log-cue-kicker {
+  font-family: "Permanent Marker", "IBM Plex Sans", sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--steel-dim);
+  margin: 0 0 0.2rem;
+}
+.log-cue-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--steel-bright);
+  letter-spacing: 0.02em;
+}
+.log-cue-body {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.log-cue .ghost-btn {
+  margin-top: 0.45rem;
+}
+.log-cue.tone-warn {
+  border-color: var(--warn);
+}
+.log-cue.tone-ember {
+  border-color: var(--ember);
+}
+.log-cue.tone-ok {
+  border-color: var(--ok);
+}
+.log-cue.tone-dim {
+  border-color: var(--border);
+}
+.ex-item.log-cue-hit {
+  outline: 1px solid var(--warn);
+  outline-offset: 1px;
+}
 .coach-steps {
   margin: 0.7rem 0;
   padding-left: 1.15rem;
