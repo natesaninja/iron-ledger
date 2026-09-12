@@ -1243,6 +1243,28 @@ button.cmd-mark:active {
   line-height: 1.35;
 }
 
+.need-order-bar {
+  margin: 0.35rem 0 0.65rem;
+}
+.need-order-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--steel-bright);
+}
+.need-order-toggle input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent);
+}
+.need-order-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .set-log {
   margin-top: 0.55rem;
   padding: 0.5rem;

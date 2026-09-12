@@ -969,6 +969,8 @@ export const DEFAULT_SETTINGS = {
    * Trims volume via session budget the same way as sessionMinutes.
    */
   timeBoxMinutes: 0,
+  /** Today: compounds covering lagging muscles first so a short session still counts */
+  stackByNeed: true,
   splitPreference: "auto",
   /** Baseline weekly coverage targets (stable; day dose changes session size, not the yardstick) */
   medMultiplier: 0.9,

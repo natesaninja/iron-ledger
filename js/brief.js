@@ -15,7 +15,7 @@ export const BRIEF_SECTIONS = [
     code: "02",
     title: "Today",
     view: "today",
-    body: "The gym floor. Week strip, a cue from your log (stagnation, missed days, push/pull), next targets from last hard sets, then the session. Low / MED / OED changes dose if energy shifts — even mid-session.",
+    body: "The gym floor. Week strip, a cue from your log, next targets, then the session. Short on time stacks lagging compounds first and isolation last — work top-down. Low / MED / OED changes dose if energy shifts — even mid-session.",
   },
   {
     id: "logging",

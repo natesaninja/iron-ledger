@@ -1,5 +1,5 @@
 /* Iron Ledger service worker — network-first shell updates (MacroLedger model) */
-const CACHE = "ironledger-v24.10";
+const CACHE = "ironledger-v24.11";
 const ASSETS = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const ASSETS = [
   "./js/programs.js",
   "./js/adapt.js",
   "./js/week.js",
+  "./js/need-order.js",
   "./js/journal.js",
   "./js/invite.js",
   "./js/invite-config.js",

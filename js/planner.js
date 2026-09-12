@@ -45,7 +45,7 @@ export function monthLabel(year, monthIndex) {
   });
 }
 
-function weeklyTarget(m, settings) {
+export function weeklyTarget(m, settings) {
   let t = m.weeklyMed * (settings.medMultiplier || 1);
   if (settings.trainingMode === "custom" && settings.customTargets && settings.customTargets[m.id] != null) {
     t *= settings.customTargets[m.id];
